@@ -15,8 +15,14 @@
 
 ## Status Atual
 
-**Fase concluída até agora: Fase 1 (Scaffold do monorepo).**
-**Próxima fase a fazer: Fase 2 — Schema Prisma + migrations.**
+**Fase concluída até agora: Fase 2 (Schema Prisma + migrations).**
+**Próxima fase a fazer: Fase 3 — Camada de tempo real (join/create/rehydrate/presença).**
+
+Schema Prisma criado e migration `20260826004008_init` aplicada (`server/prisma/dev.db`, sqlite, gitignored). Descoberta importante: **o conector SQLite do Prisma 5 rejeita o tipo `Json` no schema** (erro de validação, não roda `migrate dev`) — por isso `settingsJson` (em `Room`) e `repairs` (em `PitStop`) são `String` no banco, guardando `JSON.stringify(...)`/parseados manualmente na camada de serviço. Da mesma forma, **não usamos `enum` do Prisma nem scalar list (`String[]`)** — todo campo "enum" (`raceDurationType`, `status`, `source`, `severity`...) é `String` livre, validado contra as unions do `@lmu/shared` na camada de serviço (Fase 3+), não no banco. Isso é proposital: deixa o schema idêntico entre SQLite (dev) e Postgres (prod), então trocar o `provider` no `DEPLOY.md` (Fase 16) não deve exigir mexer nos models — só rodar `prisma migrate deploy` de novo contra o Postgres.
+
+Seed de desenvolvimento pronto e testado: `npm run db:seed --workspace=server` cria/recria uma sala fixa com código **`DEV001`** (3 pilotos: Ana/Bruno/Carla, 3 linhas de escala de 90min cada). **Usar esse código pra testar manualmente as próximas fases** em vez de criar sala nova toda hora — só rodar o seed de novo se precisar resetar o estado.
+
+`server/.env` (gitignored, tem `DATABASE_URL="file:./dev.db"`) e `server/.env.example` (versionado, documenta as vars) já existem — se `server/.env` não existir numa sessão nova, copiar de `.env.example` antes de rodar qualquer comando `prisma`.
 
 Monorepo funcionando: `npm install` na raiz resolve as 3 workspaces, `npm run dev:server` sobe Express+Socket.IO em `:4001` (`/health` OK), `npm run dev:web` sobe o Next.js em `:3000` com tema escuro e fontes Fira Sans/Fira Code aplicadas (confirmado via curl + inspeção do CSS compilado). Detalhes técnicos importantes descobertos nesta fase:
 
@@ -117,7 +123,7 @@ Critério de pronto:
 - `npm run dev --workspace=server` sobe o Express e `curl http://localhost:PORT/health` responde 200.
 - `npm run dev --workspace=web` sobe o Next.js e a home carrega no navegador (ou via `curl` retorna HTML) com fundo escuro.
 
-### [ ] Fase 2 — Schema Prisma + migrations
+### [x] Fase 2 — Schema Prisma + migrations
 - `server/prisma/schema.prisma` com o modelo completo (ver seção acima, refinado).
 - `npx prisma migrate dev` gerando a primeira migration, SQLite local funcionando.
 - `server/src/db.ts` exportando um `PrismaClient` singleton.

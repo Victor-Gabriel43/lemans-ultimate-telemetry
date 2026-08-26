@@ -1,0 +1,155 @@
+// Schema Prisma — ver PASSO_A_PASSO.md (seção "Modelo de dados") para o
+// racional de cada campo antes de alterar.
+//
+// Decisão: nenhum campo usa `enum` nativo do Prisma, scalar list
+// (String[]) nem `Json` — o conector SQLite (usado em dev) não suporta
+// nenhum dos três de forma portável para Postgres (produção). `Json` em
+// especial: o Prisma 5 recusa esse tipo de campo no schema quando o
+// provider é sqlite (erro de validação, não é limitação de runtime).
+// Em vez disso: `String` simples pros campos de "enum" (validados na
+// camada de serviço contra as unions de @lmu/shared) e `String` com
+// JSON.stringify/parse manual pra listas/objetos (`repairs`,
+// `settingsJson`) — ver server/src/db.ts para os helpers de (de)serialização.
+// Isso deixa o schema idêntico entre SQLite e Postgres, então trocar o
+// provider no deploy (Fase 16) não exige tocar nos models.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id                String   @id @default(cuid())
+  inviteCode        String   @unique
+  name              String
+  car               String
+  track             String?
+  raceDurationType  String // "TIME" | "LAPS"
+  raceDurationValue Float
+  raceStartedAt     DateTime?
+  currentLap        Int?
+  position          Int?
+  lastLapTime       Float?
+  bestLapTime       Float?
+  gapAheadSec       Float?
+  gapBehindSec      Float?
+  settingsJson      String // JSON.stringify(RoomSettings)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  drivers     Driver[]
+  scheduleRows ScheduleRow[]
+  pitStops    PitStop[]
+  fuelLog     FuelEntry[]
+  tireLog     TireEntry[]
+  damageLog   DamageEntry[]
+  alerts      Alert[]
+}
+
+model Driver {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  name      String
+  colorHex  String
+  createdAt DateTime @default(now())
+
+  scheduleRows ScheduleRow[]
+
+  @@index([roomId])
+}
+
+model ScheduleRow {
+  id              String   @id @default(cuid())
+  roomId          String
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  order           Float
+  plannedLabel    String
+  driverId        String?
+  driver          Driver?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  status          String   @default("PLANNED") // "PLANNED" | "ACTIVE" | "DONE"
+  durationMinutes Float
+  notes           String   @default("")
+  updatedBy       String
+  updatedAt       DateTime @updatedAt
+
+  @@index([roomId])
+}
+
+model PitStop {
+  id                  String    @id @default(cuid())
+  roomId              String
+  room                Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  lap                 Int?
+  fuelAddedLiters     Float?
+  tireChangeCompound  String?
+  driverChangeToId    String?
+  repairs             String? // JSON.stringify(DamageSeverity[])
+  durationSeconds     Int?
+  startedAt           DateTime  @default(now())
+  completedAt         DateTime?
+  createdBy           String
+
+  @@index([roomId])
+}
+
+model FuelEntry {
+  id              String   @id @default(cuid())
+  roomId          String
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  lap             Int
+  litersUsed      Float?
+  litersRemaining Float?
+  source          String   @default("MANUAL") // "MANUAL" | "TELEMETRY"
+  createdBy       String
+  createdAt       DateTime @default(now())
+
+  @@index([roomId])
+}
+
+model TireEntry {
+  id            String   @id @default(cuid())
+  roomId        String
+  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  compound      String
+  stintStartLap Int
+  ageLaps       Int      @default(0)
+  wearPercent   Float?
+  source        String   @default("MANUAL")
+  createdBy     String
+  createdAt     DateTime @default(now())
+
+  @@index([roomId])
+}
+
+model DamageEntry {
+  id                    String    @id @default(cuid())
+  roomId                String
+  room                  Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  part                  String
+  severity              String // "LIGHT" | "MODERATE" | "SEVERE"
+  repairEstimateMinutes Float?
+  source                String    @default("MANUAL")
+  repairedAt            DateTime?
+  createdBy             String
+  createdAt             DateTime  @default(now())
+
+  @@index([roomId])
+}
+
+model Alert {
+  id           String    @id @default(cuid())
+  roomId       String
+  room         Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  type         String
+  message      String
+  severity     String // "INFO" | "WARNING" | "CRITICAL"
+  createdAt    DateTime  @default(now())
+  dismissedAt  DateTime?
+
+  @@index([roomId])
+}
