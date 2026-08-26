@@ -1,7 +1,14 @@
 import type { Server, Socket } from "socket.io";
 import type { ClientToServerEvents, ServerToClientEvents, ConnectedUser } from "@lmu/shared";
 import { colorForName } from "@lmu/shared";
-import { findRoomByInviteCode, getRoomSnapshot, updateRoomDashboard } from "../rooms/roomService.js";
+import { findRoomByInviteCode, getRoomSnapshot, updateRoomDashboard, upsertRoomMember } from "../rooms/roomService.js";
+import {
+  addScheduleRow,
+  listScheduleRows,
+  removeScheduleRow,
+  reorderScheduleRow,
+  updateScheduleRow,
+} from "../rooms/scheduleService.js";
 import { addPresence, removePresence, listPresence } from "./presence.js";
 
 export interface SocketData {
@@ -15,6 +22,16 @@ type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<strin
 
 export function registerSocketHandlers(io: AppServer): void {
   io.on("connection", (socket: AppSocket) => {
+    // Só quem já deu join nesta sala (nesta conexão) pode mutar ela — evita
+    // que um cliente mande roomId de outra sala por engano/malícia.
+    function ownsRoom(roomId: string): boolean {
+      return socket.data.roomId === roomId;
+    }
+
+    async function broadcastSchedule(roomId: string) {
+      io.to(roomId).emit("schedule:changed", await listScheduleRows(roomId));
+    }
+
     socket.on("room:join", async (payload, ack) => {
       try {
         const room = await findRoomByInviteCode(payload.inviteCode);
@@ -39,6 +56,7 @@ export function registerSocketHandlers(io: AppServer): void {
           connectedAt: new Date().toISOString(),
         };
         addPresence(room.id, socket.id, user);
+        await upsertRoomMember(room.id, userId, name);
 
         const snapshot = await getRoomSnapshot(room.id);
         if (!snapshot) {
@@ -56,14 +74,52 @@ export function registerSocketHandlers(io: AppServer): void {
     });
 
     socket.on("dashboard:update", async (payload) => {
-      // Só quem já deu join nesta sala (nesta conexão) pode mutar ela —
-      // evita que um cliente mande roomId de outra sala por engano/malícia.
-      if (socket.data.roomId !== payload.roomId) return;
+      if (!ownsRoom(payload.roomId)) return;
       try {
         const updated = await updateRoomDashboard(payload.roomId, payload.patch);
         io.to(payload.roomId).emit("room:updated", updated);
       } catch (err) {
         console.error("[socket] erro em dashboard:update", err);
+      }
+    });
+
+    socket.on("schedule:add", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await addScheduleRow(payload.roomId, payload.afterRowId, payload.updatedBy);
+        await broadcastSchedule(payload.roomId);
+      } catch (err) {
+        console.error("[socket] erro em schedule:add", err);
+      }
+    });
+
+    socket.on("schedule:update", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await updateScheduleRow(payload.roomId, payload.rowId, payload.patch, payload.updatedBy);
+        await broadcastSchedule(payload.roomId);
+      } catch (err) {
+        console.error("[socket] erro em schedule:update", err);
+      }
+    });
+
+    socket.on("schedule:remove", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await removeScheduleRow(payload.roomId, payload.rowId);
+        await broadcastSchedule(payload.roomId);
+      } catch (err) {
+        console.error("[socket] erro em schedule:remove", err);
+      }
+    });
+
+    socket.on("schedule:reorder", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await reorderScheduleRow(payload.roomId, payload.rowId, payload.direction, payload.updatedBy);
+        await broadcastSchedule(payload.roomId);
+      } catch (err) {
+        console.error("[socket] erro em schedule:reorder", err);
       }
     });
 

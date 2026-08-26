@@ -5,6 +5,7 @@ import {
   type RoomSettings,
   type RoomSnapshot,
   type Driver,
+  type RoomMember,
   type ScheduleRow,
   type PitStop,
   type FuelEntry,
@@ -16,6 +17,7 @@ import {
 import type {
   Room as DbRoom,
   Driver as DbDriver,
+  RoomMember as DbRoomMember,
   ScheduleRow as DbScheduleRow,
   PitStop as DbPitStop,
   FuelEntry as DbFuelEntry,
@@ -103,7 +105,20 @@ function toDriver(db: DbDriver): Driver {
   return { id: db.id, roomId: db.roomId, name: db.name, colorHex: db.colorHex, createdAt: db.createdAt.toISOString() };
 }
 
-function toScheduleRow(db: DbScheduleRow): ScheduleRow {
+function toRoomMember(db: DbRoomMember): RoomMember {
+  return { userId: db.userId, name: db.name };
+}
+
+/** Chamado a cada room:join — mantém o roster durável (userId -> nome) em dia. */
+export async function upsertRoomMember(roomId: string, userId: string, name: string): Promise<void> {
+  await prisma.roomMember.upsert({
+    where: { roomId_userId: { roomId, userId } },
+    create: { roomId, userId, name },
+    update: { name },
+  });
+}
+
+export function toScheduleRow(db: DbScheduleRow): ScheduleRow {
   return {
     id: db.id,
     roomId: db.roomId,
@@ -242,6 +257,7 @@ export async function getRoomSnapshot(roomId: string): Promise<RoomSnapshot | nu
     where: { id: roomId },
     include: {
       drivers: { orderBy: { createdAt: "asc" } },
+      members: true,
       scheduleRows: { orderBy: { order: "asc" } },
       pitStops: { orderBy: { startedAt: "desc" } },
       fuelLog: { orderBy: { createdAt: "desc" } },
@@ -255,6 +271,7 @@ export async function getRoomSnapshot(roomId: string): Promise<RoomSnapshot | nu
   return {
     room: toRoom(room),
     drivers: room.drivers.map(toDriver),
+    members: room.members.map(toRoomMember),
     scheduleRows: room.scheduleRows.map(toScheduleRow),
     pitStops: room.pitStops.map(toPitStop),
     fuelLog: room.fuelLog.map(toFuelEntry),

@@ -149,6 +149,16 @@ export interface Alert {
   dismissedAt: string | null;
 }
 
+/**
+ * Roster durável de quem já entrou na sala (userId -> nome). Diferente de
+ * ConnectedUser: existe mesmo depois que a pessoa desconecta, usado pra
+ * resolver `updatedBy`/`createdBy` em nome de exibição (ex: EditedByBadge).
+ */
+export interface RoomMember {
+  userId: string;
+  name: string;
+}
+
 export interface ConnectedUser {
   /** Id da conexão de socket em si — usar como key de lista (único por aba/conexão). */
   socketId: string;
@@ -182,6 +192,7 @@ export interface Room {
 export interface RoomSnapshot {
   room: Room;
   drivers: Driver[];
+  members: RoomMember[];
   scheduleRows: ScheduleRow[];
   pitStops: PitStop[];
   fuelLog: FuelEntry[];
@@ -205,7 +216,7 @@ export interface ClientToServerEvents {
   "schedule:add": (payload: { roomId: string; afterRowId?: string; updatedBy: string }) => void;
   "schedule:update": (payload: { roomId: string; rowId: string; patch: Partial<ScheduleRow>; updatedBy: string }) => void;
   "schedule:remove": (payload: { roomId: string; rowId: string }) => void;
-  "schedule:reorder": (payload: { roomId: string; rowId: string; newOrder: number; updatedBy: string }) => void;
+  "schedule:reorder": (payload: { roomId: string; rowId: string; direction: "up" | "down"; updatedBy: string }) => void;
 
   "fuel:log": (payload: Omit<FuelEntry, "id" | "roomId" | "createdAt">) => void;
   "tire:newStint": (payload: Omit<TireEntry, "id" | "roomId" | "createdAt" | "ageLaps"> & { roomId: string }) => void;

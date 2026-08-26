@@ -42,12 +42,31 @@ model Room {
   updatedAt         DateTime @updatedAt
 
   drivers     Driver[]
+  members     RoomMember[]
   scheduleRows ScheduleRow[]
   pitStops    PitStop[]
   fuelLog     FuelEntry[]
   tireLog     TireEntry[]
   damageLog   DamageEntry[]
   alerts      Alert[]
+}
+
+// Roster durável de quem já entrou na sala (userId -> nome), separado da
+// presença em memória (socket/presence.ts, que é só "quem está conectado
+// agora"). Existe pra resolver o autor de um `updatedBy`/`createdBy` em
+// nome de exibição mesmo depois que a pessoa desconectou — sem isso, o
+// badge "editado por" na planilha de escala mostraria um userId cru (uuid)
+// pra qualquer editor que não estivesse mais online.
+model RoomMember {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  name      String
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomId, userId])
+  @@index([roomId])
 }
 
 model Driver {

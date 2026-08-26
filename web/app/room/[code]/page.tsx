@@ -1,8 +1,13 @@
 "use client";
 
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { Maximize2 } from "lucide-react";
 import { useRoomStore } from "@/state/roomStore";
 import { RaceStatusCard } from "@/components/dashboard/RaceStatusCard";
 import { CurrentDriverCard } from "@/components/dashboard/CurrentDriverCard";
+import { ScheduleSheet } from "@/components/schedule/ScheduleSheet";
+import { ScheduleTotals } from "@/components/schedule/ScheduleTotals";
 
 /**
  * Dashboard da sala. O layout (app/room/[code]/layout.tsx) só renderiza
@@ -11,6 +16,7 @@ import { CurrentDriverCard } from "@/components/dashboard/CurrentDriverCard";
  */
 export default function RoomPage() {
   const snapshot = useRoomStore((s) => s.snapshot);
+  const params = useParams<{ code: string }>();
   if (!snapshot) return null;
 
   return (
@@ -21,24 +27,19 @@ export default function RoomPage() {
       <PlaceholderCard title="Combustível" note="Fase 8" />
       <PlaceholderCard title="Pneus" note="Fase 9" />
 
-      <section className="rounded-lg border border-border bg-surface p-4 sm:col-span-2 lg:col-span-3">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
-          Escala de pilotos (dados do seed — edição de verdade chega na Fase 7)
-        </h2>
-        <ul className="flex flex-col gap-2">
-          {snapshot.scheduleRows.map((row) => (
-            <li
-              key={row.id}
-              className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${
-                row.status === "ACTIVE" ? "border-l-2 border-brand bg-surface-raised" : ""
-              } ${row.status === "DONE" ? "opacity-50 line-through" : ""}`}
-            >
-              <span className="font-mono tabular-nums">{row.plannedLabel}</span>
-              <span>{snapshot.drivers.find((d) => d.id === row.driverId)?.name ?? "—"}</span>
-              <span className="text-text-muted">{row.durationMinutes}min</span>
-            </li>
-          ))}
-        </ul>
+      <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:col-span-2 lg:col-span-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">Escala de pilotos</h2>
+          <Link
+            href={`/room/${params.code}/schedule`}
+            className="flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text"
+          >
+            <Maximize2 size={14} aria-hidden />
+            Tela cheia
+          </Link>
+        </div>
+        <ScheduleTotals />
+        <ScheduleSheet />
       </section>
 
       <PlaceholderCard title="Danos" note="Fase 10" />

@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { RoomSnapshot, ConnectedUser, Room } from "@lmu/shared";
+import type { RoomSnapshot, ConnectedUser, Room, ScheduleRow } from "@lmu/shared";
 import { getSocket } from "@/lib/socket";
 import { getIdentity, saveIdentity } from "@/lib/identity";
 
@@ -16,6 +16,10 @@ interface RoomState {
   snapshot: RoomSnapshot | null;
   join: (inviteCode: string, name: string) => Promise<void>;
   updateDashboard: (patch: Partial<Room>) => void;
+  addScheduleRow: (afterRowId?: string) => void;
+  updateScheduleRow: (rowId: string, patch: Partial<ScheduleRow>) => void;
+  removeScheduleRow: (rowId: string) => void;
+  reorderScheduleRow: (rowId: string, direction: "up" | "down") => void;
 }
 
 export const useRoomStore = create<RoomState>((set) => ({
@@ -65,6 +69,37 @@ export const useRoomStore = create<RoomState>((set) => ({
     useRoomStore.setState({ snapshot: { ...snapshot, room: { ...snapshot.room, ...patch } } });
     getSocket().emit("dashboard:update", { roomId: snapshot.room.id, patch, updatedBy: userId });
   },
+
+  addScheduleRow: (afterRowId) => {
+    const { snapshot, userId } = useRoomStore.getState();
+    if (!snapshot || !userId) return;
+    getSocket().emit("schedule:add", { roomId: snapshot.room.id, afterRowId, updatedBy: userId });
+  },
+
+  updateScheduleRow: (rowId, patch) => {
+    const { snapshot, userId } = useRoomStore.getState();
+    if (!snapshot || !userId) return;
+    // otimista, igual ao updateDashboard — o servidor confirma via schedule:changed
+    useRoomStore.setState({
+      snapshot: {
+        ...snapshot,
+        scheduleRows: snapshot.scheduleRows.map((r) => (r.id === rowId ? { ...r, ...patch } : r)),
+      },
+    });
+    getSocket().emit("schedule:update", { roomId: snapshot.room.id, rowId, patch, updatedBy: userId });
+  },
+
+  removeScheduleRow: (rowId) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    getSocket().emit("schedule:remove", { roomId: snapshot.room.id, rowId });
+  },
+
+  reorderScheduleRow: (rowId, direction) => {
+    const { snapshot, userId } = useRoomStore.getState();
+    if (!snapshot || !userId) return;
+    getSocket().emit("schedule:reorder", { roomId: snapshot.room.id, rowId, direction, updatedBy: userId });
+  },
 }));
 
 // Listeners de socket anexados uma única vez por aba (o socket é singleton).
@@ -90,6 +125,12 @@ export function ensureRoomListenersAttached(): void {
     const { snapshot } = useRoomStore.getState();
     if (!snapshot) return;
     useRoomStore.setState({ snapshot: { ...snapshot, room } });
+  });
+
+  socket.on("schedule:changed", (scheduleRows: ScheduleRow[]) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    useRoomStore.setState({ snapshot: { ...snapshot, scheduleRows } });
   });
 
   socket.on("connect", () => {

@@ -15,8 +15,20 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3, 4, 5 e 6.**
-**Próxima fase a fazer: Fase 7 — Planilha de escala (feature central).**
+**Fases concluídas até agora: Fase 3 a 7.**
+**Próxima fase a fazer: Fase 8 — Gestão de combustível.**
+
+A Fase 7 (planilha de escala) é a feature central do produto e está funcional e testada de ponta a ponta: edição inline célula-a-célula (texto/número, sem modal), **Enter confirma e desce pra célula de baixo** (padrão planilha, testado de verdade — funciona), Esc cancela, troca de piloto/status via `<select>`, adicionar/remover linha, mover cima/baixo (swap de `order`), linha `ACTIVE` destacada (borda azul) e `DONE` esmaecida+riscada, painel de totais por piloto com detecção de violação de `maxStintMinutes`/`minRestMinutes`, alerta de cobertura (falta/sobra tempo não coberto), badge "editado por" com nome real (não UUID), e rota de tela cheia (`/room/[code]/schedule`) mostrando exatamente o mesmo estado ao vivo. Tudo confirmado com **duas abas reais abertas simultaneamente** — editar numa propaga pra outra sem reload, incluindo quando a aba receptora já estava aberta antes da edição (não é só rehydrate no load).
+
+**Correção de dado importante feita nesta fase** (fazer isso ANTES de escrever qualquer módulo com "editado/criado por" daqui pra frente — Fases 8, 9, 10, 11): adicionada a tabela `RoomMember` (roster durável `userId → nome`, upsertado a cada `room:join`, incluído no `RoomSnapshot` como `members: RoomMember[]`). Sem isso, o `updatedBy`/`createdBy` guardado nas linhas é só um `userId` (uuid) — **sempre resolver o nome de exibição via `resolveMemberName(snapshot.members, userId)`** (`web/lib/members.ts`), nunca mostrar o `userId` cru na UI. Isso vale pra `FuelEntry.createdBy`, `TireEntry.createdBy`, `DamageEntry.createdBy`, `PitStop.createdBy` nas próximas fases.
+
+Padrão de mutação estabelecido (reaproveitar em toda fase daqui pra frente, não reinventar):
+- Um `server/src/rooms/<domínio>Service.ts` por domínio (ex: `scheduleService.ts`) com funções puras que recebem `roomId` + dados já validados/sanitizados e mexem no Prisma — nunca confiar direto num `Partial<T>` vindo do cliente sem sanitizar contra uma whitelist de campos (padrão em `sanitizeScheduleRowPatch`/`sanitizeDashboardPatch`).
+- No `server/src/socket/index.ts`: todo handler de mutação começa com `if (!ownsRoom(payload.roomId)) return;`, faz a mutação num `try/catch`, e termina fazendo o serviço recarregar a lista inteira do banco e `io.to(roomId).emit("<domínio>:changed", listaCompleta)` — **broadcast da lista inteira, não diff** (mais simples, e os volumes de dados aqui são pequenos o suficiente pra não importar).
+- No `web/state/roomStore.ts`: uma action por mutação; `update*` (edição de campo existente) faz merge otimista local ANTES de emitir (sensação instantânea pra quem editou); `add*`/`remove*`/`reorder*` (mudança estrutural) **não** faz otimista, só emite e deixa o `*:changed` do servidor atualizar — mais simples e evita ter que replicar a lógica de geração de `order`/id no cliente.
+- Componentes de edição inline (texto/número) seguem o padrão `TextCell`/`NumberCell` de `ScheduleSheet.tsx`: estado de "qual célula está em edição" mora no componente PAI da tabela (não em cada célula), pra permitir o "Enter desce pra célula de baixo" — reusar esse padrão, não o `EditableStat` mais simples (que é só pra números soltos fora de tabela, como no dashboard).
+
+Nota de metodologia de teste: nesta fase o **tamanho da janela do Chrome controlado pela skill `claude-in-chrome` variou entre chamadas** (938px → 750px → 1528px, sem eu pedir resize), causando vários cliques por coordenada de pixel errarem o alvo (não eram bugs do app — confirmei cada caso consultando o banco direto). Lição: **quando um clique por coordenada não parecer surtir efeito, não assumir bug — tirar screenshot nesse exato momento e/ou usar `find` + `form_input`/`click(ref=...)`** (imune a variação de viewport) em vez de insistir em coordenadas de uma screenshot antiga.
 
 Fase 6 testada de ponta a ponta no Chrome real: iniciar corrida, editar volta/posição/tempos inline, ver os valores propagarem ao vivo pra outra aba **e** persistirem corretamente ao reconectar (uma aba nova reabrindo a sala já chega com os valores certos e o relógio de decorrido continuando do ponto certo, não resetando — prova que o rehydrate via banco está correto, não só o push ao vivo).
 
@@ -198,10 +210,10 @@ Critério de pronto: layout responsivo verificado em 375/768/1024/1440 (resize m
 
 Critério de pronto: editar manualmente posição/volta numa aba reflete instantaneamente noutra aba aberta na mesma sala.
 
-### [ ] Fase 7 — Planilha de escala (feature central)
+### [x] Fase 7 — Planilha de escala (feature central)
 Esta é a mais importante — capriche.
 
-- Componente `ScheduleSheet` em `web/src/components/schedule/`: tabela com colunas horário/faixa de voltas, piloto (select), status, duração (min), observações, e uma coluna de ações (mover cima/baixo, duplicar, remover).
+- Componente `ScheduleSheet` em `web/components/schedule/` (repo não usa pasta `src/`, ver Fase 1): tabela com colunas horário/faixa de voltas, piloto (select), status, duração (min), observações, e uma coluna de ações (mover cima/baixo, remover). **"Duplicar" foi cortado do escopo** — não estava no pedido original do usuário, só era uma ideia minha no rascunho deste roadmap; adicionar só se pedirem.
 - Edição inline célula-a-célula (clicar → editar → Enter confirma e desce pra célula de baixo, Esc cancela) — sem modal.
 - Reordenação: setas cima/baixo (mínimo garantido, funciona em touch) + drag-and-drop opcional como melhoria (usar `@dnd-kit/core` se der tempo; não é bloqueante).
 - Linha atual (`status=ACTIVE`) destacada; concluídas (`DONE`) esmaecidas + riscadas.
