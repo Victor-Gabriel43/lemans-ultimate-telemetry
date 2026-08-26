@@ -1,11 +1,77 @@
+# Dependências
 node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Builds e artefatos
 .next/
+out/
 dist/
 build/
-*.log
+*.tsbuildinfo
+.turbo/
+.vercel/
+
+# Variáveis de ambiente (segredos — nunca commitar valores reais)
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.test
+!.env.example
+
+# Banco de dados local (SQLite — legado; Postgres roda via Docker)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Prisma
 server/prisma/dev.db
 server/prisma/dev.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage / testes
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+.eslintcache
+
+# Editores / IDEs
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.history/
+
+# Sistema operacional
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.directory
+
+# Docker (dados locais de volumes, se algum dia forem montados no repo)
+docker-data/
+
+# Diversos
+*.tmp
+*.temp
+.env.vault
