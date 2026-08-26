@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { getIdentity } from "@/lib/identity";
 import { ensureRoomListenersAttached, useRoomStore } from "@/state/roomStore";
 import { RoomHeader } from "@/components/room/RoomHeader";
+import { AlertsToast } from "@/components/alerts/AlertsToast";
 
 export default function RoomLayout({ children }: { children: React.ReactNode }) {
   const params = useParams<{ code: string }>();
@@ -29,6 +30,7 @@ export default function RoomLayout({ children }: { children: React.ReactNode }) 
   if (status === "joined" && snapshot) {
     return (
       <div className="flex flex-1 flex-col">
+        <AlertsToast />
         <RoomHeader room={snapshot.room} connectedUsers={snapshot.connectedUsers} currentUserId={userId} />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
       </div>

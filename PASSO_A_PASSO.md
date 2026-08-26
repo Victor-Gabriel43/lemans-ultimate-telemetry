@@ -15,8 +15,16 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 a 12.**
-**Próxima fase a fazer: Fase 13 — Sistema de alertas.**
+**Fases concluídas até agora: Fase 3 a 13.**
+**Próxima fase a fazer: Fase 14 — Integração de telemetria (opcional, best-effort).**
+
+Fase 13 testada no navegador com um cenário real (combustível a 1.1 voltas restantes, inserido direto no banco pra não ter que registrar 20 voltas manualmente): toast vermelho crítico apareceu no canto superior direito, texto batendo exato com o painel de combustível ("Combustível crítico: ~1.1 voltas restantes"), botão de dispensar funcionando (some o toast, mas o painel real continua mostrando o dado — dispensar é só da notificação, não do problema).
+
+**Decisão de arquitetura importante, documentar bem**: os alertas são **100% derivados no cliente**, sem usar a tabela `Alert`/eventos `alert:new`/`alert:dismiss`/`alert:changed` que já existiam no schema desde a Fase 0. Racional: como toda a sala já vê o mesmo `snapshot` sincronizado (combustível, pneu, escala), cada cliente calcula os MESMOS alertas de forma independente e simultânea — não precisa de um evento de socket dedicado nem de um "motor de regras no servidor" pra garantir que "todo mundo recebe igual" (isso já é garantido de graça pela sincronização que já existe). Isso evita o problema real de "quem persiste o alerta primeiro" com múltiplos clientes rodando a mesma regra ao mesmo tempo (corrida por quem emite `alert:new` primeiro, deduplicação, etc). Trade-off aceito conscientemente: dispensar um alerta é **só local pra aquela aba/sessão** (não persiste, não sincroniza entre dispositivos, reresete ao recarregar a página) — isso é aceitável pro caso de uso (alertas de condição, não eventos pontuais importantes o suficiente pra precisar de histórico compartilhado). A tabela `Alert` e os eventos de socket relacionados **continuam existindo no schema mas não são usados** — se um dia quiserem alertas persistentes/compartilhados de verdade (ex: um log de alertas pra ver depois da corrida), é ali que mexer, não nesta engine derivada.
+
+Motor de regras (`web/lib/alertsEngine.ts`) reaproveita os cálculos que JÁ existem em vez de duplicar: combustível usa `computeFuelStats` (agora em `shared`), pneu usa `computeTireStats` (Fase 9), piloto perto do limite reaproveita as `violations` que `computeScheduleStats` (Fase 7) já calculava (mesma checagem de `maxStintMinutes`/`minRestMinutes` que já aparecia na planilha, só re-exibida como toast), e "stint prestes a começar" usa `computeTimelineSegments` (Fase 12) comparando `startMinutes` com o tempo decorrido.
+
+Duas regras novas do React 19 que apareceram nesta fase (além das já documentadas): `react-hooks/refs` (não pode ler/escrever `.current` de um ref dentro do corpo do componente, só em efeitos/handlers) e `react-hooks/set-state-in-effect` (não pode chamar `setState` direto dentro de um `useEffect` — o padrão certo pra "ajustar estado quando algo muda" é chamar `setState` **direto no corpo do componente**, guardado por um `if` que compara contra o valor anterior, conforme https://react.dev/learn/you-might-not-need-an-effect — é isso que o `AlertsToast.tsx` faz pra rastrear "quando cada alerta apareceu" sem efeito nem ref). Lembrar dessas duas regras em qualquer componente futuro que precise de "estado derivado que persiste entre renders".
 
 Fase 12 testada no navegador: blocos coloridos proporcionais por piloto (cor via `colorForName(driverId)`, mesma paleta determinística usada nos avatares de presença — consistência visual sem precisar guardar cor no `ScheduleRow`), marcador azul de "agora" posicionado corretamente logo após iniciar a corrida, e marcador de pit stop (amarelo = em andamento, verde = concluído) aparecendo na régua ao iniciar um pit. `web/lib/timelineStats.ts` deriva tudo de `scheduleRows`/`pitStops`/`room` já existentes — **nenhum estado novo persistido**, exatamente o critério de pronto do roadmap original.
 
@@ -289,7 +297,7 @@ Critério de pronto: fluxo completo start→complete numa aba atualiza escala, d
 
 Critério de pronto: timeline reflete visualmente os dados já existentes das Fases 7 e 11 sem duplicar estado (deriva, não guarda cópia).
 
-### [ ] Fase 13 — Sistema de alertas
+### [x] Fase 13 — Sistema de alertas
 - Motor de regras simples rodando no servidor (ou client, decidir na hora — servidor é mais confiável pra "todo mundo recebe igual") verificando periodicamente: combustível baixo, pneu no fim da vida, piloto perto do limite de stint, chegada na janela de pit, stint da planilha prestes a começar (ex. faltam 2 min pro horário previsto da próxima linha `PLANNED`).
 - `alert:new` broadcast pra sala inteira; componente de toast/banner no `web` com cor por severidade (tokens já definidos no design system).
 - Alertas críticos exigem dispensa manual (clique), os demais podem auto-esconder.

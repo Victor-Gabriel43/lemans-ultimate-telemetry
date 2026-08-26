@@ -50,16 +50,6 @@ export default function RoomPage() {
       <DamagePanel />
       <PitStopPanel />
       <TimelinePanel />
-      <PlaceholderCard title="Alertas" note="Fase 13" />
     </div>
-  );
-}
-
-function PlaceholderCard({ title, note }: { title: string; note: string }) {
-  return (
-    <section className="rounded-lg border border-dashed border-border bg-surface/50 p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</h2>
-      <p className="mt-2 text-sm text-text-muted">Chega na {note}.</p>
-    </section>
   );
 }
