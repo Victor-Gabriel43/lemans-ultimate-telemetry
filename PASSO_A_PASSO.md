@@ -15,8 +15,12 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 a 11.**
-**Próxima fase a fazer: Fase 12 — Timeline visual.**
+**Fases concluídas até agora: Fase 3 a 12.**
+**Próxima fase a fazer: Fase 13 — Sistema de alertas.**
+
+Fase 12 testada no navegador: blocos coloridos proporcionais por piloto (cor via `colorForName(driverId)`, mesma paleta determinística usada nos avatares de presença — consistência visual sem precisar guardar cor no `ScheduleRow`), marcador azul de "agora" posicionado corretamente logo após iniciar a corrida, e marcador de pit stop (amarelo = em andamento, verde = concluído) aparecendo na régua ao iniciar um pit. `web/lib/timelineStats.ts` deriva tudo de `scheduleRows`/`pitStops`/`room` já existentes — **nenhum estado novo persistido**, exatamente o critério de pronto do roadmap original.
+
+Decisão de escopo: a timeline usa **um único layout horizontal proporcional em todas as larguras de tela** (não fiz uma variante vertical separada pra mobile, que o roadmap original mencionava como "ou" opcional) — barras percentuais continuam legíveis em telas estreitas, só ficam mais compactas; economiza a complexidade de manter dois layouts pra uma view secundária/complementar.
 
 Fase 11 foi a mais complexa até agora — mexe em 4 domínios de uma vez (combustível, pneu, danos, escala) — e testada de ponta a ponta com um cenário completo: planejar (15L + pneu Duro + troca de piloto + reparo) → tempo estimado calculado certo (75s = 18+12+25+20) → "Iniciar pit stop" (estado "em andamento" com cronômetro ao vivo) → "Concluir pit stop" → **todos os 4 efeitos aplicados corretamente numa única ação**: combustível foi pro tanque cheio (75L, respeitando o teto), pneu novo (Duro, 0 voltas, 100% grip), dano marcado reparado, e a escala avançou sozinha (Ana virou DONE, Bruno virou ACTIVE, "Pilotando agora" atualizou pra Bruno).
 
@@ -280,7 +284,7 @@ Critério de pronto: registrar dano numa aba aparece em todas, some do "ativo" e
 
 Critério de pronto: fluxo completo start→complete numa aba atualiza escala, dashboard ("quem está pilotando") e histórico em todas as abas.
 
-### [ ] Fase 12 — Timeline visual
+### [x] Fase 12 — Timeline visual
 - Linha do tempo horizontal (ou vertical em mobile) mostrando janelas de pit e trocas de piloto planejadas (da escala) vs. executadas (dos pit stops reais), com marcador de "agora".
 
 Critério de pronto: timeline reflete visualmente os dados já existentes das Fases 7 e 11 sem duplicar estado (deriva, não guarda cópia).

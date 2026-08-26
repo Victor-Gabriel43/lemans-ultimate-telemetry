@@ -12,6 +12,7 @@ import { FuelPanel } from "@/components/fuel/FuelPanel";
 import { TirePanel } from "@/components/tires/TirePanel";
 import { DamagePanel } from "@/components/damage/DamagePanel";
 import { PitStopPanel } from "@/components/pitstop/PitStopPanel";
+import { TimelinePanel } from "@/components/timeline/TimelinePanel";
 
 /**
  * Dashboard da sala. O layout (app/room/[code]/layout.tsx) só renderiza
@@ -48,7 +49,7 @@ export default function RoomPage() {
 
       <DamagePanel />
       <PitStopPanel />
-      <PlaceholderCard title="Timeline" note="Fase 12" />
+      <TimelinePanel />
       <PlaceholderCard title="Alertas" note="Fase 13" />
     </div>
   );
