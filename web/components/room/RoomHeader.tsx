@@ -3,6 +3,7 @@
 import type { ConnectedUser, Room } from "@lmu/shared";
 import { PresenceAvatars } from "./PresenceAvatars";
 import { CopyInviteButton } from "./CopyInviteButton";
+import { ExportButton } from "./ExportButton";
 
 export function RoomHeader({
   room,
@@ -26,6 +27,7 @@ export function RoomHeader({
 
         <div className="flex flex-wrap items-center gap-3">
           <PresenceAvatars users={connectedUsers} currentUserId={currentUserId} />
+          <ExportButton inviteCode={room.inviteCode} />
           <CopyInviteButton inviteCode={room.inviteCode} />
         </div>
       </div>

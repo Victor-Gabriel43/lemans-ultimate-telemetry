@@ -15,8 +15,10 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 a 14.**
-**Próxima fase a fazer: Fase 15 — Exportação (JSON/CSV).**
+**Fases concluídas até agora: Fase 3 a 15.**
+**Próxima fase a fazer: Fase 16 — Polish final + guia de deploy (última fase!).**
+
+Fase 15 testada via `curl` direto nos endpoints (headers e conteúdo conferidos byte a byte) e no navegador (menu do botão "Exportar" no header abrindo as duas opções). `GET /rooms/:inviteCode/export?format=json|csv` no servidor: JSON devolve o `RoomSnapshot` completo direto do banco (não do estado em memória de nenhum cliente — importante, é o que o critério de pronto original pedia: consistência garantida mesmo que quem exportar não seja quem editou por último); CSV da escala final tem BOM UTF-8 (senão acentos viram lixo no Excel do Windows) e `\r\n` (CRLF, padrão Windows/Excel para CSV). Botão "Exportar" fica no `RoomHeader` — visível de qualquer página da sala, não só do dashboard — como um menininho popover com as duas opções, fecha ao clicar fora (sem precisar de lib de UI extra).
 
 Fase 14 testada no navegador (sem o jogo instalado nesta máquina, então é exatamente o cenário "best-effort falhando" que o critério de pronto pede): toggle liga → "Conectando…" → depois de ~2s (timeout configurado), "Não conectou (localhost:6397)..." com o texto de ajuda completo (jogo aberto? bloqueio de conteúdo não seguro? tentar 127.0.0.1) — **e o resto da sala continua 100% funcional**, confirmado registrando combustível manual com a telemetria ligada e falhando ao fundo. Nenhum erro não-tratado no console — o `try/catch` em `fetchJsonFromAnyHost` engole silenciosamente `ConnectionRefused`/CORS/timeout, exatamente como desenhado.
 
@@ -325,7 +327,7 @@ Seguir `docs/telemetry-api.md` à risca — não inventar campos, parser toleran
 
 Critério de pronto: com o jogo fechado (ambiente sem LMU), o toggle tenta conectar, falha de forma clara e visível, e a sala continua 100% funcional em modo manual. (Teste real com o jogo rodando fica a cargo do usuário, que tem o jogo instalado — documentar isso claramente pro usuário quando chegar nesta fase.)
 
-### [ ] Fase 15 — Exportação
+### [x] Fase 15 — Exportação
 - Botão "Exportar corrida" (JSON completo da sala + CSV da planilha de escala final, no mínimo).
 - Endpoint `GET /rooms/:id/export` no servidor, gerando os arquivos a partir do estado persistido (não do estado em memória do cliente, pra garantir consistência).
 

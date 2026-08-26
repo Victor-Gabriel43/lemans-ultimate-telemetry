@@ -3,7 +3,8 @@ import express from "express";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 import type { ClientToServerEvents, ServerToClientEvents, RaceDurationType } from "@lmu/shared";
-import { createRoom } from "./rooms/roomService.js";
+import { createRoom, findRoomByInviteCode, getRoomSnapshot } from "./rooms/roomService.js";
+import { buildScheduleCsv } from "./rooms/exportService.js";
 import { registerSocketHandlers, type SocketData } from "./socket/index.js";
 
 const PORT = Number(process.env.PORT ?? 4001);
@@ -39,6 +40,29 @@ app.post("/rooms", async (req, res) => {
   });
 
   res.status(201).json({ id: room.id, inviteCode: room.inviteCode });
+});
+
+app.get("/rooms/:inviteCode/export", async (req, res) => {
+  const room = await findRoomByInviteCode(req.params.inviteCode);
+  if (!room) {
+    res.status(404).json({ error: "Sala não encontrada." });
+    return;
+  }
+  const snapshot = await getRoomSnapshot(room.id);
+  if (!snapshot) {
+    res.status(404).json({ error: "Sala não encontrada." });
+    return;
+  }
+
+  if (req.query.format === "csv") {
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="escala-${room.inviteCode}.csv"`);
+    res.send(buildScheduleCsv(snapshot));
+    return;
+  }
+
+  res.setHeader("Content-Disposition", `attachment; filename="corrida-${room.inviteCode}.json"`);
+  res.json(snapshot);
 });
 
 const httpServer = createServer(app);
