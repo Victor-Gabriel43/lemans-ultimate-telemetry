@@ -1,7 +1,38 @@
 /**
  * Fonte única de tipos compartilhados entre `server` e `web`.
  * Não duplicar estes tipos em nenhum dos dois pacotes — sempre importar de "@lmu/shared".
+ *
+ * Tudo num arquivo só de propósito: evita depender de resolução de extensão
+ * (.js apontando pra .ts) entre `tsx` (server, Node ESM) e o bundler do
+ * Next.js (web) — os dois resolvem esse caso de formas diferentes o
+ * suficiente pra já ter causado um `SyntaxError` em dev. Se este arquivo
+ * crescer muito, dividir com cuidado e testar os dois lados antes de commitar.
  */
+
+/**
+ * Paleta de acento pra avatares de presença (e outros usos de "cor por nome").
+ * Ver docs/design-system.md — cores determinísticas por hash do nome.
+ */
+export const ACCENT_PALETTE = [
+  "#3B82F6", // blue
+  "#22C55E", // green
+  "#F59E0B", // amber
+  "#EF4444", // red
+  "#A855F7", // purple
+  "#06B6D4", // cyan
+  "#EC4899", // pink
+  "#84CC16", // lime
+] as const;
+
+export function colorForName(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % ACCENT_PALETTE.length;
+  return ACCENT_PALETTE[index];
+}
 
 export type RaceDurationType = "TIME" | "LAPS";
 export type ScheduleStatus = "PLANNED" | "ACTIVE" | "DONE";
@@ -119,6 +150,9 @@ export interface Alert {
 }
 
 export interface ConnectedUser {
+  /** Id da conexão de socket em si — usar como key de lista (único por aba/conexão). */
+  socketId: string;
+  /** Id da pessoa (persistido em localStorage) — pode se repetir se a mesma pessoa abrir 2 abas. */
   userId: string;
   name: string;
   colorHex: string;

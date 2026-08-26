@@ -15,8 +15,26 @@
 
 ## Status Atual
 
-**Fase concluída até agora: Fase 2 (Schema Prisma + migrations).**
-**Próxima fase a fazer: Fase 3 — Camada de tempo real (join/create/rehydrate/presença).**
+**Fases concluídas até agora: Fase 3 (tempo real) + Fase 4 (landing Nova sala/Entrar em sala).**
+**Próxima fase a fazer: Fase 5 — Layout raiz da sala (header fixo, grid de cards, `EditedByBadge`).**
+
+Fluxo completo testado **de verdade em navegador real** (Chrome via skill `claude-in-chrome`, não só via script Node): criar sala pela landing, entrar em `/room/[code]` com nome, presença aparecendo em tempo real numa segunda aba sem F5, e sumindo automaticamente ao fechar a aba. `web/app/room/[code]/page.tsx` hoje é só um **stub funcional** (presença + escala somente-leitura do seed) — o layout de verdade é a Fase 5.
+
+Duas descobertas importantes desta fase (não repetir o erro / não perder o porquê):
+
+1. **Bug real encontrado testando 2 abas**: `ConnectedUser` só tinha `userId` (persistido em localStorage) como identificador. Se a mesma pessoa abre 2 abas — cenário legítimo, não só artefato de teste —, as duas conexões compartilham o mesmo `userId`, e usar `userId` como `key` de lista no React causa `"Encountered two children with the same key"` (confirmado no console do navegador). **Corrigido**: `ConnectedUser` agora tem `socketId` (id da conexão em si, sempre único) além de `userId` (id da pessoa, pode repetir); a lista de presença usa `key={u.socketId}`, e `"(você)"` continua comparando por `userId`. Se algum dia mexer em `ConnectedUser` ou nas listas de presença, manter essa distinção.
+2. **`shared/src/index.ts` não deve ser dividido em vários arquivos com `export * from "./algo.js"`** — isso quebrou o server em runtime (`SyntaxError: does not provide an export named ...`) porque a resolução de `./algo.js` apontando pra um `./algo.ts` real no disco se comporta diferente entre `tsx` (Node ESM) e o bundler do Next.js, e pelo menos um dos dois não resolveu certo. Solução aplicada: manter tudo num arquivo só (`shared/src/index.ts`), comentário no topo do arquivo explicando isso. Se `shared` crescer muito e precisar ser dividido, testar os dois lados (`server` rodando de verdade + `web` compilando) antes de commitar — não assumir que funciona só pelo `tsc --noEmit` passar (o erro anterior só aparecia em runtime, não no type-check).
+
+O que existe agora, tecnicamente:
+
+- `server/src/rooms/roomService.ts`: `createRoom`, `findRoomByInviteCode`, `getRoomSnapshot` (monta o `RoomSnapshot` completo a partir do Prisma, convertendo `Date`→ISO string e fazendo `JSON.parse` dos campos serializados).
+- `server/src/socket/presence.ts` + `server/src/socket/index.ts`: presença em memória (`Map<roomId, Map<socketId, ConnectedUser>>`), handler de `room:join` (com `ack`) e `disconnect`.
+- `POST /rooms` (REST, não socket) cria a sala — decisão: criar sala é uma ação pontual antes de entrar de fato na sala via socket, então REST simples fez mais sentido que um evento; `room:join` continua sendo socket porque precisa manter a conexão viva pra presença.
+- `web/lib/socket.ts`: singleton do `socket.io-client` (uma conexão por aba).
+- `web/lib/identity.ts`: localStorage por sala (`lmu:sessions`), **compartilhado entre abas do mesmo navegador** — é assim mesmo por design (identidade é "por navegador/dispositivo", não por aba); só importa pro caso real de "mesma pessoa, 2 dispositivos diferentes", que naturalmente têm localStorage separado.
+- `web/state/roomStore.ts`: store Zustand com `join()`, escuta `presence:update`, e re-faz `room:join` automaticamente quando o socket reconecta (Socket.IO reconecta sozinho, mas o servidor não guarda presença entre desconexões — sem esse re-join automático a aba ficaria "conectada" no transporte mas sumida da lista de presença de todo mundo).
+- `web/app/page.tsx`: landing com os dois cards (Criar/Entrar), formulário de criação chamando `POST /rooms` no servidor direto (não via socket).
+- `web/app/room/[code]/page.tsx`: fluxo idle→conectando→erro→conectado, com fallback de "seu nome" quando não há identidade salva pra aquela sala (ex: alguém abrindo o link de convite pela primeira vez).
 
 Schema Prisma criado e migration `20260826004008_init` aplicada (`server/prisma/dev.db`, sqlite, gitignored). Descoberta importante: **o conector SQLite do Prisma 5 rejeita o tipo `Json` no schema** (erro de validação, não roda `migrate dev`) — por isso `settingsJson` (em `Room`) e `repairs` (em `PitStop`) são `String` no banco, guardando `JSON.stringify(...)`/parseados manualmente na camada de serviço. Da mesma forma, **não usamos `enum` do Prisma nem scalar list (`String[]`)** — todo campo "enum" (`raceDurationType`, `status`, `source`, `severity`...) é `String` livre, validado contra as unions do `@lmu/shared` na camada de serviço (Fase 3+), não no banco. Isso é proposital: deixa o schema idêntico entre SQLite (dev) e Postgres (prod), então trocar o `provider` no `DEPLOY.md` (Fase 16) não deve exigir mexer nos models — só rodar `prisma migrate deploy` de novo contra o Postgres.
 
@@ -131,7 +149,7 @@ Critério de pronto:
 
 Critério de pronto: `npx prisma studio` (ou uma query simples num script) mostra as tabelas criadas e o seed populado.
 
-### [ ] Fase 3 — Camada de tempo real (join/create/rehydrate/presença)
+### [x] Fase 3 — Camada de tempo real (join/create/rehydrate/presença)
 - `server/src/rooms/roomService.ts`: criar sala (gera `inviteCode` único, ex. 6 chars alfanuméricos maiúsculos sem O/0/I/1 ambíguos), buscar sala por código, montar snapshot completo pra rehydrate.
 - `server/src/socket/index.ts`: handler de conexão, `room:join`, presença em memória, `disconnect` limpando presença e emitindo `presence:update`.
 - `web/src/lib/socket.ts`: cliente socket.io singleton.
@@ -140,7 +158,7 @@ Critério de pronto: `npx prisma studio` (ou uma query simples num script) mostr
 
 Critério de pronto: abrir a mesma sala em duas abas do navegador com nomes diferentes → cada uma aparece na lista de presença da outra em tempo real, e dar F5 numa aba não duplica o usuário nem perde o nome.
 
-### [ ] Fase 4 — Landing: Nova Sala / Entrar em Sala
+### [x] Fase 4 — Landing: Nova Sala / Entrar em Sala
 - `web/app/page.tsx`: dois cards grandes — "Criar nova sala" (form: nome da corrida, carro, duração — tempo ou voltas) e "Entrar em sala" (campo de código, campo de nome).
 - Ao criar: chama o servidor (REST simples `POST /rooms` ou evento de socket `room:create`), recebe `inviteCode`, navega pra `web/app/room/[code]/page.tsx`.
 - Tela de erro amigável se o código não existir.
