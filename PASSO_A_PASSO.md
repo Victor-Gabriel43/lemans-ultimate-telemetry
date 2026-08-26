@@ -15,8 +15,14 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 (tempo real) + Fase 4 (landing Nova sala/Entrar em sala).**
-**Próxima fase a fazer: Fase 5 — Layout raiz da sala (header fixo, grid de cards, `EditedByBadge`).**
+**Fases concluídas até agora: Fase 3, 4 e 5.**
+**Próxima fase a fazer: Fase 6 — Dashboard geral (tempo decorrido/restante, posição, gaps, quem está pilotando).**
+
+Fase 5 testada visualmente no Chrome real (header sticky com blur, presença no header, botão de copiar convite com feedback de "copiado", grid de cards responsivo). Uma limitação de ambiente pra lembrar: a ferramenta `resize_window` da skill `claude-in-chrome` **não consegue ir abaixo de ~750px de largura neste ambiente** (parece ter um piso de janela do SO/Chrome) — não dá pra tirar screenshot real em 375px por aqui. Verificação em mobile de verdade (viewport < 640px) precisa ser feita pelo usuário no devtools do próprio navegador ou celular real; o que dá pra garantir por código é que as classes Tailwind seguem mobile-first corretamente (sem prefixo = 1 coluna, `sm:`/`lg:` adicionam colunas a partir de 640px/1024px).
+
+Arquivos novos desta fase: `web/components/EditedByBadge.tsx` (badge "editado por X há Ns", tick a cada 1s via `setInterval`, usa `web/lib/relativeTime.ts`), `web/components/room/{RoomHeader,PresenceAvatars,CopyInviteButton}.tsx`, e `web/app/room/[code]/layout.tsx` — **o layout agora é quem decide idle/conectando/erro/entrar-nome vs. renderizar header+children**; `page.tsx` ficou só com o conteúdo do dashboard (assume que já está "joined", já que o layout garante isso). Isso significa que qualquer rota nova dentro de `/room/[code]/*` (ex: a tela cheia da escala na Fase 7, `/room/[code]/schedule`) **herda o header e o gating de join automaticamente, de graça** — não reimplementar isso de novo.
+
+`lucide-react` foi adicionado como dependência do `web` pra ícones SVG (copiar, check, lápis) — usar essa lib pros próximos ícones, não emoji, conforme `docs/design-system.md`.
 
 Fluxo completo testado **de verdade em navegador real** (Chrome via skill `claude-in-chrome`, não só via script Node): criar sala pela landing, entrar em `/room/[code]` com nome, presença aparecendo em tempo real numa segunda aba sem F5, e sumindo automaticamente ao fechar a aba. `web/app/room/[code]/page.tsx` hoje é só um **stub funcional** (presença + escala somente-leitura do seed) — o layout de verdade é a Fase 5.
 
@@ -165,7 +171,7 @@ Critério de pronto: abrir a mesma sala em duas abas do navegador com nomes dife
 
 Critério de pronto: fluxo completo manual — criar sala, copiar link/código, abrir em outra aba (simulando outro dispositivo), entrar com nome, ver os dois conectados.
 
-### [ ] Fase 5 — Layout raiz da sala
+### [x] Fase 5 — Layout raiz da sala
 - Shell da página da sala: header fixo (nome da corrida, indicador "ao vivo" pulsante, avatares de presença, código/link de convite com botão copiar), grid de cards responsivo pro resto do conteúdo.
 - Aplicar tokens do `docs/design-system.md` via `tailwind.config.ts` (cores, fontes).
 - Componente `EditedByBadge` reutilizável (nome + tempo relativo, atualiza sozinho a cada poucos segundos).
