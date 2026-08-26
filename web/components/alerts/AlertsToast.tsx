@@ -88,7 +88,7 @@ export function AlertsToast() {
             type="button"
             onClick={() => dismiss(a.key, a.severity)}
             aria-label="Dispensar alerta"
-            className="cursor-pointer text-text-muted transition-colors hover:text-text"
+            className="-m-2.5 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center text-text-muted transition-colors hover:text-text"
           >
             <X size={16} />
           </button>

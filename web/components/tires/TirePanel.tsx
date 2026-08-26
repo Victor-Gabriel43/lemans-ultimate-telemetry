@@ -64,7 +64,7 @@ export function TirePanel() {
         <button
           type="button"
           onClick={() => startTireStint(compound)}
-          className="min-h-9 cursor-pointer rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-fg transition-opacity hover:opacity-90"
+          className="min-h-11 cursor-pointer rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-fg transition-opacity hover:opacity-90"
         >
           Trocar pneu
         </button>

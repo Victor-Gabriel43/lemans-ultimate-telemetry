@@ -14,6 +14,7 @@ export function PitStopPanel() {
   const snapshot = useRoomStore((s) => s.snapshot)!;
   const startPitStop = useRoomStore((s) => s.startPitStop);
   const completePitStop = useRoomStore((s) => s.completePitStop);
+  const cancelPitStop = useRoomStore((s) => s.cancelPitStop);
   const { pitStops, damageLog, scheduleRows, drivers, members, room } = snapshot;
 
   const inProgress = pitStops.find((p) => !p.completedAt) ?? null;
@@ -75,13 +76,22 @@ export function PitStopPanel() {
                 {formatClock((now - new Date(inProgress.startedAt).getTime()) / 1000)}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => completePitStop(inProgress.id)}
-              className="min-h-12 cursor-pointer rounded-md bg-brand px-4 py-3 font-medium text-brand-fg transition-opacity hover:opacity-90"
-            >
-              Concluir pit stop
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => cancelPitStop(inProgress.id)}
+                className="min-h-12 cursor-pointer rounded-md border border-border px-4 py-3 font-medium text-text-muted transition-colors hover:bg-surface-raised hover:text-text"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => completePitStop(inProgress.id)}
+                className="min-h-12 cursor-pointer rounded-md bg-brand px-4 py-3 font-medium text-brand-fg transition-opacity hover:opacity-90"
+              >
+                Concluir pit stop
+              </button>
+            </div>
           </div>
           <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-muted">
             {inProgress.fuelAddedLiters != null && <li>Abastecer {inProgress.fuelAddedLiters}L</li>}

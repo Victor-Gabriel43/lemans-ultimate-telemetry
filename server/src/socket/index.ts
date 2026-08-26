@@ -12,7 +12,7 @@ import {
 import { listFuelLog, logFuelEntry } from "../rooms/fuelService.js";
 import { listTireLog, startNewTireStint } from "../rooms/tireService.js";
 import { listDamageLog, logDamageEntry, markDamageRepaired } from "../rooms/damageService.js";
-import { completePitStop, listPitStops, startPitStop } from "../rooms/pitStopService.js";
+import { cancelPitStop, completePitStop, listPitStops, startPitStop } from "../rooms/pitStopService.js";
 import { addPresence, removePresence, listPresence } from "./presence.js";
 
 export interface SocketData {
@@ -189,6 +189,16 @@ export function registerSocketHandlers(io: AppServer): void {
         io.to(payload.roomId).emit("pitstop:changed", await listPitStops(payload.roomId));
       } catch (err) {
         console.error("[socket] erro em pitstop:start", err);
+      }
+    });
+
+    socket.on("pitstop:cancel", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await cancelPitStop(payload.roomId, payload.pitStopId);
+        io.to(payload.roomId).emit("pitstop:changed", await listPitStops(payload.roomId));
+      } catch (err) {
+        console.error("[socket] erro em pitstop:cancel", err);
       }
     });
 

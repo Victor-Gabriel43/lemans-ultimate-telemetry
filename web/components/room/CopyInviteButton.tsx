@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
-export function CopyInviteButton({ inviteCode }: { inviteCode: string }) {
+export function CopyInviteButton({ inviteCode, reconnecting = false }: { inviteCode: string; reconnecting?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -22,9 +22,12 @@ export function CopyInviteButton({ inviteCode }: { inviteCode: string }) {
       type="button"
       onClick={handleCopy}
       className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 transition-colors hover:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-      title="Copiar link de convite"
+      title={reconnecting ? "Reconectando…" : "Copiar link de convite"}
     >
-      <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-status-ok" aria-hidden />
+      <span
+        className={`h-2 w-2 shrink-0 animate-pulse rounded-full ${reconnecting ? "bg-status-warning" : "bg-status-ok"}`}
+        aria-hidden
+      />
       <span className="font-mono text-sm tracking-widest">{inviteCode}</span>
       {copied ? (
         <Check size={16} className="text-status-ok" aria-hidden />

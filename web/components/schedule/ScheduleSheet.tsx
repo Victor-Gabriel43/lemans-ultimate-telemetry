@@ -232,7 +232,7 @@ function IconButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-transparent transition-colors hover:border-border hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-30 ${
+      className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md border border-transparent transition-colors hover:border-border hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-30 ${
         variant === "danger" ? "hover:border-status-critical/40 hover:text-status-critical" : ""
       }`}
     >

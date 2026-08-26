@@ -27,11 +27,20 @@ export default function RoomLayout({ children }: { children: React.ReactNode }) 
     }
   }, [inviteCode, join]);
 
-  if (status === "joined" && snapshot) {
+  // Reconectando com o snapshot ainda em mãos: mantém a sala inteira visível
+  // (só o indicador do header muda) — sumir com a tela inteira numa
+  // instabilidade de rede de 1-2s seria pior experiência do que continuar
+  // mostrando o último estado conhecido enquanto o Socket.IO reconecta sozinho.
+  if ((status === "joined" || status === "reconnecting") && snapshot) {
     return (
       <div className="flex flex-1 flex-col">
         <AlertsToast />
-        <RoomHeader room={snapshot.room} connectedUsers={snapshot.connectedUsers} currentUserId={userId} />
+        <RoomHeader
+          room={snapshot.room}
+          connectedUsers={snapshot.connectedUsers}
+          currentUserId={userId}
+          reconnecting={status === "reconnecting"}
+        />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
       </div>
     );

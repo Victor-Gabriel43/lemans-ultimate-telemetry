@@ -73,7 +73,7 @@ export function DamagePanel() {
                 <button
                   type="button"
                   onClick={() => repairDamage(d.id)}
-                  className="cursor-pointer rounded-md border border-current px-2 py-1 text-xs transition-opacity hover:opacity-80"
+                  className="min-h-11 cursor-pointer rounded-md border border-current px-3 py-1 text-xs transition-opacity hover:opacity-80"
                 >
                   Marcar reparado
                 </button>
@@ -115,7 +115,7 @@ export function DamagePanel() {
         <button
           type="button"
           onClick={() => logDamage(part, severity)}
-          className="min-h-9 cursor-pointer rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-fg transition-opacity hover:opacity-90"
+          className="min-h-11 cursor-pointer rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-fg transition-opacity hover:opacity-90"
         >
           Registrar dano
         </button>

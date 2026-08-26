@@ -47,6 +47,7 @@ interface RoomState {
     repairDamageIds: string[];
   }) => void;
   completePitStop: (pitStopId: string) => void;
+  cancelPitStop: (pitStopId: string) => void;
 }
 
 export const useRoomStore = create<RoomState>((set) => ({
@@ -176,6 +177,12 @@ export const useRoomStore = create<RoomState>((set) => ({
     const { snapshot } = useRoomStore.getState();
     if (!snapshot) return;
     getSocket().emit("pitstop:complete", { roomId: snapshot.room.id, pitStopId });
+  },
+
+  cancelPitStop: (pitStopId) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    getSocket().emit("pitstop:cancel", { roomId: snapshot.room.id, pitStopId });
   },
 
   pushTelemetryDashboard: (patch) => {

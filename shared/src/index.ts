@@ -254,6 +254,7 @@ export interface ClientToServerEvents {
     createdBy: string;
   }) => void;
   "pitstop:complete": (payload: { roomId: string; pitStopId: string }) => void;
+  "pitstop:cancel": (payload: { roomId: string; pitStopId: string }) => void;
 
   "dashboard:update": (payload: { roomId: string; patch: Partial<Room>; updatedBy: string }) => void;
   "telemetry:push": (payload: { roomId: string; patch: Partial<Room> }) => void;

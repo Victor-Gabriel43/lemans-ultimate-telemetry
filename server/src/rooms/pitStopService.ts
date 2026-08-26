@@ -40,10 +40,14 @@ export async function startPitStop(roomId: string, plan: PitPlanInput): Promise<
 /**
  * Aplica os efeitos do pit stop nos outros domínios (combustível, pneu,
  * danos, escala) e fecha o registro com a duração real. Tudo derivado do
- * que foi planejado no início — se o plano mudou de ideia no meio do
- * caminho, o jeito é cancelar e começar outro pit stop (sem edição do plano
- * em andamento por enquanto, escopo mínimo).
+ * que foi planejado no início — não dá pra EDITAR o plano de um pit já em
+ * andamento (só cancelar via `cancelPitStop` e começar outro do zero).
  */
+/** Cancela um pit stop iniciado por engano — só apaga se ainda não foi concluído (nenhum efeito colateral foi aplicado ainda nesse ponto). */
+export async function cancelPitStop(roomId: string, pitStopId: string): Promise<void> {
+  await prisma.pitStop.deleteMany({ where: { id: pitStopId, roomId, completedAt: null } });
+}
+
 export async function completePitStop(roomId: string, pitStopId: string): Promise<void> {
   const pit = await prisma.pitStop.findUnique({ where: { id: pitStopId, roomId } });
   if (!pit || pit.completedAt) return;

@@ -15,8 +15,9 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 a 15.**
-**Próxima fase a fazer: Fase 16 — Polish final + guia de deploy (última fase!).**
+**🏁 TODAS AS 16 FASES CONCLUÍDAS. O projeto está funcionalmente completo e testado.**
+
+O que falta é só o que só o usuário pode fazer (nunca o Claude sozinho, ver regras de segurança no início desta sessão): criar as contas de verdade (GitHub já existe, faltam Vercel + Railway/Render) e seguir o `DEPLOY.md` pra publicar. Se alguém reabrir este projeto numa sessão nova achando que "falta alguma fase", **não é o caso** — reveja o `git log` e a lista de fases abaixo (todas com `[x]`) antes de assumir que há trabalho pendente. Trabalho futuro genuíno (não fases faltando, mas melhorias possíveis) está listado na seção "Ideias pra depois" no fim deste arquivo.
 
 Fase 15 testada via `curl` direto nos endpoints (headers e conteúdo conferidos byte a byte) e no navegador (menu do botão "Exportar" no header abrindo as duas opções). `GET /rooms/:inviteCode/export?format=json|csv` no servidor: JSON devolve o `RoomSnapshot` completo direto do banco (não do estado em memória de nenhum cliente — importante, é o que o critério de pronto original pedia: consistência garantida mesmo que quem exportar não seja quem editou por último); CSV da escala final tem BOM UTF-8 (senão acentos viram lixo no Excel do Windows) e `\r\n` (CRLF, padrão Windows/Excel para CSV). Botão "Exportar" fica no `RoomHeader` — visível de qualquer página da sala, não só do dashboard — como um menininho popover com as duas opções, fecha ao clicar fora (sem precisar de lib de UI extra).
 
@@ -333,13 +334,21 @@ Critério de pronto: com o jogo fechado (ambiente sem LMU), o toggle tenta conec
 
 Critério de pronto: exportar gera um JSON válido com todas as entidades da sala e um CSV abrindo corretamente numa planilha (Excel/Sheets/LibreOffice).
 
-### [ ] Fase 16 — Polish final + guia de deploy
-- Passar o checklist de acessibilidade/responsividade do `docs/design-system.md` em todas as telas.
-- Revisar estados vazios (sala nova sem nenhum dado em cada módulo) e estados de erro (socket caiu, reconectando...).
-- Indicador de reconexão automática do socket (Socket.IO já reconecta sozinho — só precisa refletir isso na UI: "reconectando...").
-- `DEPLOY.md`: passo a passo pro usuário publicar sozinho — `web` na Vercel (variável de ambiente com a URL do servidor de socket), `server` no Railway/Render (com Postgres gerenciado deles, trocando o `provider` do Prisma e rodando `prisma migrate deploy`). Sem eu tocar em nenhuma conta.
+### [x] Fase 16 — Polish final + guia de deploy
 
-Critério de pronto: `DEPLOY.md` é seguível do zero por alguém que nunca viu o projeto.
+Testado com uma sala **totalmente nova** (não o seed `DEV001`) desde a tela inicial até rolar a página inteira — todo módulo mostra estado vazio correto (sem crash, sem `NaN`/`undefined` na tela): "Nenhum stint ativo", "Nenhum piloto escalado ainda", "Nenhum pneu registrado", "Nenhum dano ativo", "Adicione stints na escala pra ver a timeline", alerta de cobertura calculando `0min de 6h` sem quebrar. Exportação JSON/CSV também testada nessa sala vazia (CSV sai só com o cabeçalho, sem erro).
+
+**Indicador de reconexão corrigido de verdade** (testado derrubando e religando o servidor com uma sala aberta): antes, `status === "reconnecting"` substituía a tela inteira por uma mensagem centralizada — agora, se já existe um `snapshot` (ou seja, a sala já tinha sido carregada antes), a UI inteira continua visível e usável, só aparece uma faixa amarela no topo do header ("Reconectando… os dados continuam salvos...") e o ponto verde ao lado do código vira âmbar. A tela cheia de "Conectando…" só aparece no primeiro join de verdade (quando ainda não existe nenhum snapshot). Ver `web/app/room/[code]/layout.tsx` e `web/components/room/{RoomHeader,CopyInviteButton}.tsx`.
+
+**Auditoria de alvo de toque (≥44×44px)**: encontrados e corrigidos vários botões abaixo do mínimo — os botões primários de Combustível/Pneus/Danos (`min-h-9` → `min-h-11`), os ícones de mover/remover linha da planilha (`h-8 w-8` → `h-11 w-11`), "Marcar reparado" e o X de dispensar alerta (que não tinha área de toque nenhuma além do ícone — ganhou `-m-2.5 h-11 w-11` pra expandir a área clicável sem inflar visualmente o toast).
+
+**Descoberta importante que quase virou um `DEPLOY.md` errado**: o build de produção original do `server` (`tsc -p tsconfig.json`) **gerava o arquivo no lugar errado** (`dist/server/src/index.js` em vez de `dist/index.js`) porque o TypeScript, ao seguir o `paths` mapping pra `../shared/src/index.ts` (fora do `rootDir`), estrutura o `outDir` espelhando a raiz comum de todos os arquivos de entrada — um problema clássico de monorepo com pacote-fonte-sem-build (`@lmu/shared` consumido como `.ts` puro). **Corrigido trocando o build de produção pra `esbuild`** (`server/package.json`: script `build` agora é `esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external` — bundla o código próprio incluindo `shared/`, mas mantém as dependências de `node_modules` como `express`/`socket.io`/`@prisma/client` externas). O script antigo (`tsc -p tsconfig.json`) virou `npm run typecheck --workspace=server`, que é só pra checagem de tipos (`--noEmit`, sem gerar arquivo nenhum) — continuar usando esse pra type-check, nunca pra build de verdade. **Isso foi testado de ponta a ponta nesta sessão**: `npm install` na raiz + `npm run build --workspace=server` + `npm run start --workspace=server` rodando de verdade e respondendo em `/health` — é exatamente esse fluxo que o `DEPLOY.md` documenta pra Railway/Render, então as instruções não são um chute, foram verificadas.
+
+`DEPLOY.md` escrito na raiz do repo — cobre: preparar o repo, trocar SQLite→Postgres (com o aviso de que isso quebra o dev local em SQLite a partir dali, sugerindo uma branch separada pra quem quiser manter os dois), deploy do backend na Railway (com o Root Directory/Build/Start Command exatos, já testados), deploy do frontend na Vercel (Root Directory `web`, nota sobre detecção automática de workspace), como conectar as duas pontas (`WEB_ORIGIN` ↔ `NEXT_PUBLIC_SERVER_URL`), como testar, e uma nota sobre o mixed-content da telemetria em produção HTTPS.
+
+Critério de pronto original ("`DEPLOY.md` é seguível do zero"): os comandos de build/start foram testados de verdade nesta sessão; os passos específicos de configuração de UI da Railway/Vercel (cliques em botões, nomes de campos) **não puderam ser testados** porque exigiriam criar contas — são descritos com base em como essas plataformas funcionam hoje, mas se a UI delas mudar, ajustar o guia conforme necessário. Isso é uma limitação inerente e conhecida, não um descuido.
+
+**Correção extra encontrada durante o polish** (não estava no checklist original, mas apareceu ao revisar o fluxo do pit stop): não existia jeito de cancelar um pit stop iniciado por engano — a sala ficava "travada" no estado "em andamento" até alguém completar. Adicionado `pitstop:cancel` (server: `cancelPitStop` em `pitStopService.ts`, só apaga o registro se `completedAt` ainda for `null`, sem nenhum efeito colateral já que os efeitos só são aplicados na conclusão; client: botão "Cancelar" ao lado de "Concluir pit stop" no `PitStopPanel`).
 
 ---
 
@@ -353,3 +362,19 @@ Critério de pronto: `DEPLOY.md` é seguível do zero por alguém que nunca viu 
 - Remoto git já existe: `git@github.com:Vinii225/lemans-ultimate.git`. **Nunca dar `git push` sem o usuário pedir explicitamente** — combinado no início do projeto (2026-08-25).
 - Não implementar hierarquia de permissões/papéis — decisão explícita do usuário pra v1 ("todo mundo edita").
 - Telemetria é opcional e best-effort por design — nunca fazer nada da Fase 14 virar bloqueante de outra fase.
+- Pit stop em andamento pode ser cancelado (`pitstop:cancel`) — não fica travado se alguém clicar "Iniciar pit stop" sem querer.
+- Nunca usar `form_input` da skill `claude-in-chrome` em `<input type="checkbox">` — não dispara o `onChange` do React nesta versão da ferramenta (ver notas da Fase 7/11). Usar clique real (`computer` com `ref`).
+- O ambiente de teste (skill `claude-in-chrome`) tem um piso de ~750px de largura de janela — não dá pra tirar screenshot real em 375px aqui; testes de mobile de verdade dependem do usuário.
+
+## Ideias pra depois (não são fases faltando — o projeto está completo)
+
+Coisas deliberadamente deixadas de fora do escopo original ou simplificadas conscientemente, que podem virar trabalho futuro se o usuário pedir:
+
+- **Scoring de telemetria ao vivo** (posição/volta/tempos direto do jogo): não implementado porque não existe endpoint REST confirmado pra isso — só Shared Memory, inacessível via navegador (ver `docs/telemetry-api.md` e as notas da Fase 14). Precisa de alguém validar `http://localhost:6397/swagger/index.html` com o jogo rodando.
+- **Danos via telemetria** (`/rest/garage/UIScreen/RepairAndRefuel`): mesma limitação — formato do JSON não confirmado, arriscado demais de "chutar" sem dar falso positivo.
+- **Drag-and-drop na planilha de escala**: a Fase 7 implementou reordenar só com setas cima/baixo (garantido, funciona em touch) — arrastar era "opcional, não bloqueante" no escopo original e não foi feito.
+- **Alertas persistentes/compartilhados**: a Fase 13 decidiu conscientemente que alertas são derivados no cliente, sem usar a tabela `Alert`/eventos `alert:*` que já existem no schema — se um dia quiserem um histórico de alertas que sobrevive a reload e é igual pra todo mundo (não só "dispensei na minha aba"), é ali que mexer.
+- **Hierarquia de permissões/papéis**: fora de escopo explícito da v1 (decisão do usuário — "todo mundo edita").
+- **Testes automatizados** (unitários/e2e): o projeto inteiro foi validado manualmente via navegador real (skill `claude-in-chrome`) fase a fase, documentado nas notas de cada fase acima — não existe nenhuma suíte de testes automatizada no repo. Se o projeto crescer, vale considerar, especialmente pras funções puras de `shared/` e `web/lib/*Stats.ts` (são as mais fáceis de testar, sem precisar mockar socket/DOM).
+- **CI/CD**: não configurado (sem GitHub Actions rodando lint/typecheck/build a cada push). Fácil de adicionar depois — os comandos já existem e funcionam (`npm run typecheck --workspace=server`, `npx tsc --noEmit` no `web`, `npx eslint` no `web`, `npm run build --workspace=server`).
+- **Editar o plano de um pit stop já em andamento**: uma vez que "Iniciar pit stop" é clicado, o plano (combustível/pneu/troca de piloto/reparos) fica travado até "Concluir" — não dá pra mudar de ideia no meio, só **cancelar** (botão adicionado na Fase 16 — `pitstop:cancel`, só apaga o registro se ainda não foi concluído, sem efeito colateral nenhum) e começar de novo do zero.
