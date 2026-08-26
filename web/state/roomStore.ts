@@ -31,9 +31,13 @@ interface RoomState {
   updateScheduleRow: (rowId: string, patch: Partial<ScheduleRow>) => void;
   removeScheduleRow: (rowId: string) => void;
   reorderScheduleRow: (rowId: string, direction: "up" | "down") => void;
-  logFuel: (entry: { lap: number; litersUsed: number | null; litersRemaining: number | null }) => void;
+  logFuel: (
+    entry: { lap: number; litersUsed: number | null; litersRemaining: number | null },
+    source?: EntrySource
+  ) => void;
   startTireStint: (compound: string) => void;
-  logDamage: (part: string, severity: DamageSeverity) => void;
+  logDamage: (part: string, severity: DamageSeverity, source?: EntrySource) => void;
+  pushTelemetryDashboard: (patch: Partial<Room>) => void;
   repairDamage: (damageId: string) => void;
   startPitStop: (plan: {
     lap: number | null;
@@ -124,10 +128,9 @@ export const useRoomStore = create<RoomState>((set) => ({
     getSocket().emit("schedule:reorder", { roomId: snapshot.room.id, rowId, direction, updatedBy: userId });
   },
 
-  logFuel: (entry) => {
+  logFuel: (entry, source = "MANUAL") => {
     const { snapshot, userId } = useRoomStore.getState();
     if (!snapshot || !userId) return;
-    const source: EntrySource = "MANUAL";
     getSocket().emit("fuel:log", { roomId: snapshot.room.id, ...entry, source, createdBy: userId });
   },
 
@@ -144,7 +147,7 @@ export const useRoomStore = create<RoomState>((set) => ({
     });
   },
 
-  logDamage: (part, severity) => {
+  logDamage: (part, severity, source = "MANUAL") => {
     const { snapshot, userId } = useRoomStore.getState();
     if (!snapshot || !userId) return;
     getSocket().emit("damage:log", {
@@ -152,7 +155,7 @@ export const useRoomStore = create<RoomState>((set) => ({
       part,
       severity,
       repairEstimateMinutes: null,
-      source: "MANUAL",
+      source,
       createdBy: userId,
     });
   },
@@ -173,6 +176,13 @@ export const useRoomStore = create<RoomState>((set) => ({
     const { snapshot } = useRoomStore.getState();
     if (!snapshot) return;
     getSocket().emit("pitstop:complete", { roomId: snapshot.room.id, pitStopId });
+  },
+
+  pushTelemetryDashboard: (patch) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    useRoomStore.setState({ snapshot: { ...snapshot, room: { ...snapshot.room, ...patch } } });
+    getSocket().emit("telemetry:push", { roomId: snapshot.room.id, patch });
   },
 }));
 

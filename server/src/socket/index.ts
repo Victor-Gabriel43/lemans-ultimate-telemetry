@@ -87,6 +87,21 @@ export function registerSocketHandlers(io: AppServer): void {
       }
     });
 
+    // Mesma whitelist/validação do dashboard:update (updateRoomDashboard já
+    // sanitiza contra Partial<Room> arbitrário) — só muda a origem do dado.
+    // Endpoint de scoring ao vivo da LMU ainda não foi confirmado (ver
+    // docs/telemetry-api.md), então isso fica pronto pra quando alguém
+    // validar o endpoint real com o jogo rodando; não fabricamos a URL.
+    socket.on("telemetry:push", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        const updated = await updateRoomDashboard(payload.roomId, payload.patch);
+        io.to(payload.roomId).emit("room:updated", updated);
+      } catch (err) {
+        console.error("[socket] erro em telemetry:push", err);
+      }
+    });
+
     socket.on("schedule:add", async (payload) => {
       if (!ownsRoom(payload.roomId)) return;
       try {

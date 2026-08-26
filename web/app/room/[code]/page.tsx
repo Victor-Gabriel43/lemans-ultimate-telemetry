@@ -13,6 +13,7 @@ import { TirePanel } from "@/components/tires/TirePanel";
 import { DamagePanel } from "@/components/damage/DamagePanel";
 import { PitStopPanel } from "@/components/pitstop/PitStopPanel";
 import { TimelinePanel } from "@/components/timeline/TimelinePanel";
+import { TelemetryToggle } from "@/components/telemetry/TelemetryToggle";
 
 /**
  * Dashboard da sala. O layout (app/room/[code]/layout.tsx) só renderiza
@@ -50,6 +51,7 @@ export default function RoomPage() {
       <DamagePanel />
       <PitStopPanel />
       <TimelinePanel />
+      <TelemetryToggle />
     </div>
   );
 }

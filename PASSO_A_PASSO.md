@@ -15,8 +15,17 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 a 13.**
-**Próxima fase a fazer: Fase 14 — Integração de telemetria (opcional, best-effort).**
+**Fases concluídas até agora: Fase 3 a 14.**
+**Próxima fase a fazer: Fase 15 — Exportação (JSON/CSV).**
+
+Fase 14 testada no navegador (sem o jogo instalado nesta máquina, então é exatamente o cenário "best-effort falhando" que o critério de pronto pede): toggle liga → "Conectando…" → depois de ~2s (timeout configurado), "Não conectou (localhost:6397)..." com o texto de ajuda completo (jogo aberto? bloqueio de conteúdo não seguro? tentar 127.0.0.1) — **e o resto da sala continua 100% funcional**, confirmado registrando combustível manual com a telemetria ligada e falhando ao fundo. Nenhum erro não-tratado no console — o `try/catch` em `fetchJsonFromAnyHost` engole silenciosamente `ConnectionRefused`/CORS/timeout, exatamente como desenhado.
+
+**O que foi implementado de verdade vs. o que ficou de infraestrutura pronta pra depois** (importante pra quem for validar com o jogo rodando):
+- **Combustível via `/rest/strategy/usage`**: implementado ponta a ponta — `web/lib/telemetry/lmuClient.ts` faz o fetch tolerante (2 hosts × timeout 2s), parser tenta várias chaves candidatas (`fuelRemaining`, `virtualEnergyRemaining`, etc — **nenhuma delas confirmada**, é chute educado baseado em convenção, não documentação oficial) e, se achar um número, empurra via o MESMO caminho `fuel:log` da Fase 8 (`source: "TELEMETRY"` em vez de `"MANUAL"` — reaproveitando 100% do handler/validação/broadcast que já existia, sem criar código novo no servidor pra isso).
+- **Scoring ao vivo (posição/volta/tempos)**: **não implementado** — não existe endpoint confirmado pra isso (só Shared Memory, inacessível via browser — ver `docs/telemetry-api.md`). Deixei o evento `telemetry:push`/`pushTelemetryDashboard` funcionando de ponta a ponta (servidor já tem o handler, reaproveitando `updateRoomDashboard`) mas **sem nenhum client chamando ele ainda** — é pra quando alguém confirmar o endpoint real via `http://localhost:6397/swagger/index.html` com o jogo rodando. Não fabriquei uma URL de endpoint só pra "completar a feature".
+- **Danos via `/rest/garage/UIScreen/RepairAndRefuel`**: **não implementado** — o formato do JSON é tão incerto que um parser "tentando chaves candidatas" ficaria arriscado demais de dar falso positivo (ex: confundir um wear% de freio com um de suspensão). Fica documentado aqui como próximo passo quando alguém validar o schema real.
+
+**Pra quem for validar com o jogo rodando** (não dá pra fazer nesta máquina, que não tem Windows/LMU instalado): abrir `http://localhost:6397/swagger/index.html` com uma sessão ativa, comparar contra `FUEL_REMAINING_KEYS` em `web/lib/telemetry/lmuClient.ts`, ajustar as chaves candidatas (ou substituir por parsing exato se o schema for conhecido), e então implementar scoring/danos seguindo o mesmo padrão de `pollFuelTelemetry`/`parseFuelUsage`.
 
 Fase 13 testada no navegador com um cenário real (combustível a 1.1 voltas restantes, inserido direto no banco pra não ter que registrar 20 voltas manualmente): toast vermelho crítico apareceu no canto superior direito, texto batendo exato com o painel de combustível ("Combustível crítico: ~1.1 voltas restantes"), botão de dispensar funcionando (some o toast, mas o painel real continua mostrando o dado — dispensar é só da notificação, não do problema).
 
@@ -304,7 +313,7 @@ Critério de pronto: timeline reflete visualmente os dados já existentes das Fa
 
 Critério de pronto: forçar uma condição (ex. reduzir combustível manualmente abaixo do limite) dispara o alerta em todas as abas conectadas.
 
-### [ ] Fase 14 — Integração de telemetria (best-effort, client-side)
+### [x] Fase 14 — Integração de telemetria (best-effort, client-side)
 Seguir `docs/telemetry-api.md` à risca — não inventar campos, parser tolerante.
 
 - Toggle "Conectar telemetria local" na UI (só visível/relevante pra quem está no PC do jogo).
