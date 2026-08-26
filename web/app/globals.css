@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/*
+ * Tokens de design — ver docs/design-system.md na raiz do repo.
+ * Dark-only na v1 (decisão do produto). Não adicionar variante light
+ * nem media query prefers-color-scheme sem atualizar aquele doc antes.
+ */
+:root {
+  --bg: #020617;
+  --surface: #0e1223;
+  --surface-raised: #1a1e2f;
+  --border-c: #334155;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --brand: #3b82f6;
+  --brand-fg: #0b1220;
+  --status-ok: #22c55e;
+  --status-warning: #f59e0b;
+  --status-critical: #ef4444;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border-c);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-status-ok: var(--status-ok);
+  --color-status-warning: var(--status-warning);
+  --color-status-critical: var(--status-critical);
+  --font-sans: var(--font-fira-sans);
+  --font-mono: var(--font-fira-code);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Números que mudam com frequência (tempos de volta, combustível, etc)
+   não devem "pular" de largura ao trocar de dígito. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

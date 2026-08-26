@@ -1,0 +1,252 @@
+# LMU Race Engineer — Passo a Passo de Implementação
+
+> **Leia isto primeiro em qualquer sessão nova.** Este arquivo é a fonte de verdade do progresso do projeto. Ele é longo de propósito: o objetivo é que uma sessão do Claude Code **sem nenhum contexto anterior** consiga abrir este arquivo e continuar exatamente de onde parou, sem precisar re-perguntar nada ao usuário nem redescobrir decisões já tomadas.
+
+## Como retomar o trabalho (leia antes de codar)
+
+1. Rode `git log --oneline -20` para ver o que já foi commitado.
+2. Veja a seção **Status Atual** abaixo — ela diz exatamente qual é a próxima fase.
+3. Abra a fase correspondente mais embaixo neste arquivo: ela lista os arquivos a criar/mudar e o critério de "pronto".
+4. Depois de terminar uma fase: marque o checkbox `[x]`, atualize **Status Atual**, faça commit (`git add -A && git commit -m "..."`), e só então siga pra próxima fase.
+5. Não pule fases fora de ordem — cada uma assume que a anterior está funcional (ex: não dá pra fazer a planilha de escala em tempo real sem a camada de socket da Fase 3 já funcionando).
+6. Se algo neste documento conflitar com o que você encontrar no código (ex: um nome de arquivo mudou), o **código manda** — atualize este documento pra refletir a realidade antes de continuar.
+
+---
+
+## Status Atual
+
+**Fase concluída até agora: Fase 1 (Scaffold do monorepo).**
+**Próxima fase a fazer: Fase 2 — Schema Prisma + migrations.**
+
+Monorepo funcionando: `npm install` na raiz resolve as 3 workspaces, `npm run dev:server` sobe Express+Socket.IO em `:4001` (`/health` OK), `npm run dev:web` sobe o Next.js em `:3000` com tema escuro e fontes Fira Sans/Fira Code aplicadas (confirmado via curl + inspeção do CSS compilado). Detalhes técnicos importantes descobertos nesta fase:
+
+- **Next.js 16 / React 19 / Tailwind v4** foram instalados (últimas versões disponíveis, não Next 14 como o pedido original sugeriu — sem problema, só significa: `params` de rota dinâmica é `Promise` em Server Components (usar `await params` ou, em Client Component, o hook `useParams()` — mais simples pro nosso caso já que a página da sala precisa ser client component por causa do socket). Tailwind v4 não usa `tailwind.config.ts` — os tokens de cor/fonte ficam em `web/app/globals.css` via `@theme inline`, já configurados lá com os nomes `bg-bg`, `bg-surface`, `text-text-muted`, `text-status-ok/warning/critical`, `border-border`, `font-sans`, `font-mono` etc. **Usar essas classes, não inventar cor nova.**
+- `@lmu/shared` é consumido como TS puro via symlink de workspace (sem build step em dev) — `server` usa `tsx` (que transpila on-the-fly) e `web` precisa de `transpilePackages: ["@lmu/shared"]` no `next.config.ts` (já configurado).
+- `create-next-app` roda o `npm install` respeitando o workspace raiz automaticamente (detectei que ele instalou em `/node_modules` da raiz, não em `web/node_modules` — comportamento correto do npm workspaces, só documentando pra não estranhar).
+- Lembrar de sempre matar os processos de dev (`next dev` / `tsx watch`) ao terminar de testar — eles não morrem sozinhos com `timeout`+`&` em background do jeito que rodei aqui.
+
+`docs/telemetry-api.md` e `docs/design-system.md` já existem e devem ser respeitados (não redecidir cores/tipografia nem reinventar a estratégia de telemetria — já está pesquisado e documentado lá).
+
+Repositório git: local, inicializado, remoto configurado como `origin` → `git@github.com:Vinii225/lemans-ultimate.git` (o usuário faz o `push` quando quiser — **nunca dar push sem pedir**, combinado no início do projeto).
+
+Decisão do usuário sobre deploy: **eu (Claude) NÃO tenho e não devo tentar obter credenciais de Vercel/Supabase/Railway.** O trabalho é construir tudo localmente, testável localmente, e escrever um guia de deploy (`DEPLOY.md`, Fase 16) para o usuário publicar sozinho.
+
+---
+
+## Decisões de arquitetura (não redecidir — só ajustar se algo se provar inviável)
+
+### Stack final
+
+- **Monorepo com npm workspaces**, 3 pacotes: `shared/`, `server/`, `web/`.
+- **`shared/`**: pacote TypeScript só com tipos (`Room`, `Driver`, `ScheduleRow`, eventos de socket, etc). Único lugar onde o formato dos dados é definido — server e web importam de lá (`@lmu/shared`). Evita duplicar/dessincronizar tipos entre front e back.
+- **`server/`**: Node + Express + **Socket.IO** (tempo real) + **Prisma ORM**.
+  - Por quê Socket.IO próprio em vez de Supabase Realtime: o usuário disse que vai fazer o deploy ele mesmo depois e eu não tenho como criar/testar contas Supabase agora. Um backend Node+Socket.IO+Prisma roda 100% local sem nenhuma conta externa, o que permite construir E TESTAR tudo nesta fase de desenvolvimento. Isso também é uma das opções que o próprio usuário sugeriu ("Railway/Render se preferir um backend Node próprio com Socket.IO"). Se no futuro quiserem migrar pra Supabase Realtime, a lógica de domínio (regras de negócio) fica isolada em `server/src/rooms/` e não depende de Socket.IO diretamente o suficiente pra facilitar a troca depois.
+  - Banco: Prisma com **SQLite em dev** (zero setup, arquivo local em `server/prisma/dev.db`, já no `.gitignore`) e **Postgres em produção** (troca de `provider` no `schema.prisma` + `DATABASE_URL`, documentado no `DEPLOY.md` da Fase 16).
+- **`web/`**: **Next.js 14 (App Router) + TypeScript + Tailwind CSS**, cliente `socket.io-client`, estado local com **Zustand** (simples, sem boilerplate de Redux, funciona bem pra "estado da sala espelhado do servidor").
+- **Identidade sem cadastro**: ao entrar numa sala, o navegador gera um `userId` (uuid) salvo em `localStorage` junto com o nome escolhido, por sala (`lmu:sessions` → `{ [inviteCode]: { userId, name } }`). Isso permite reconectar/dar F5 sem perder "quem eu sou" nem duplicar usuários na lista de presença.
+- **Servidor é a fonte da verdade**: toda edição (célula da planilha, log de combustível, etc) é um evento de socket validado no servidor, persistido via Prisma, e só depois retransmitido (`io.to(roomId).emit(...)`) pra todo mundo — inclusive pra quem editou (evita bug de estado local dessincronizar do banco). Sem CRDT/OT: como é "todo mundo edita, equipe pequena e confiável", **last-write-wins** por linha/campo é suficiente, com `updatedBy` + `updatedAt` gravados a cada mutação pra dar rastreabilidade (o "editado por Fulano há 5s" pedido no requisito).
+- **Presença (quem está conectado)** é efêmera, mantida em memória no servidor (`Map<roomId, Map<socketId, {userId, name, color}>>`), reconstruída a cada conexão — não precisa de tabela no banco.
+
+### Modelo de dados (Prisma — detalhar de verdade na Fase 2, isto é o esqueleto)
+
+```
+Room          { id, inviteCode(unique), name, car, track?, raceDurationType(TIME|LAPS), raceDurationValue,
+                raceStartedAt?, currentLap?, position?, lastLapTime?, bestLapTime?, gapAheadSec?, gapBehindSec?,
+                settingsJson (maxStintMinutes, minRestMinutes, tireDegradationCurve, pitActionDurations),
+                createdAt, updatedAt }
+Driver        { id, roomId, name, colorHex, createdAt }
+ScheduleRow   { id, roomId, order(Float), plannedLabel, driverId?, status(PLANNED|ACTIVE|DONE), durationMinutes,
+                notes, updatedBy, updatedAt }
+PitStop       { id, roomId, lap?, fuelAddedLiters?, tireChangeCompound?, driverChangeToId?, repairsJson?,
+                durationSeconds?, createdBy, createdAt }
+FuelEntry     { id, roomId, lap, litersUsed?, litersRemaining?, source(MANUAL|TELEMETRY), createdBy, createdAt }
+TireEntry     { id, roomId, compound, stintStartLap, ageLaps, wearPercent?, source(MANUAL|TELEMETRY), createdBy, createdAt }
+DamageEntry   { id, roomId, part, severity(LIGHT|MODERATE|SEVERE), repairEstimateMinutes?, source, createdBy, createdAt }
+Alert         { id, roomId, type, message, severity(INFO|WARNING|CRITICAL), createdAt, dismissedAt? }
+```
+
+`order` como `Float` (não int) pra permitir reordenar linhas da planilha inserindo entre duas existentes (`(a+b)/2`) sem ter que renumerar tudo a cada drag.
+
+### Eventos de Socket.IO (nomenclatura — manter consistente)
+
+Padrão: `domínio:ação`. Cliente emite, servidor valida+persiste+re-emite pra sala inteira via `broadcastToRoom`.
+
+```
+room:join          { inviteCode, userId?, name }   → ack com snapshot completo da sala + userId (novo ou reaproveitado)
+room:state         (servidor → todos) snapshot completo, usado em reconexão
+presence:update    (servidor → todos) lista atual de conectados
+schedule:add / schedule:update / schedule:remove / schedule:reorder
+fuel:log
+tire:update / tire:newStint
+damage:log
+pitstop:start / pitstop:update / pitstop:complete
+dashboard:update   (posição, volta, tempos — manual ou vindo de telemetry:push)
+telemetry:push     { fields... }  (só do navegador com telemetria ativada, best-effort)
+alert:new / alert:dismiss
+```
+
+### UI/Design
+
+Já decidido e documentado em `docs/design-system.md` (gerado com a skill `ui-ux-pro-max`, instalada globalmente): dark-only, paleta com status ok/aviso/crítico, tipografia Fira Sans + Fira Code, planilha inline-editável. **Sempre seguir esse arquivo** ao construir qualquer tela — não escolher cor/fonte "no olho" numa fase e outra diferente na próxima.
+
+---
+
+## Fases
+
+Cada fase tem: objetivo, arquivos principais, critério de pronto (algo que dá pra verificar sozinho, sem depender do usuário rodar nada). Marque `[x]` ao concluir.
+
+### [x] Fase 0 — Fundamentos
+- Pesquisa da API local da LMU → `docs/telemetry-api.md`.
+- Design system gerado com a skill `ui-ux-pro-max` → `docs/design-system.md`.
+- Este arquivo de roadmap.
+- Git local inicializado, remoto `origin` configurado (sem push).
+
+### [x] Fase 1 — Scaffold do monorepo
+Objetivo: estrutura de pastas, workspaces, TypeScript, lint, Next.js e servidor rodando localmente (mesmo que só com telas/rotas placeholder).
+
+Arquivos principais:
+- `package.json` raiz com `"workspaces": ["shared", "server", "web"]`.
+- `shared/package.json`, `shared/src/index.ts` (tipos iniciais: `Room`, `Driver`, `ScheduleRow`, enums).
+- `server/package.json`, `server/tsconfig.json`, `server/src/index.ts` (Express + Socket.IO, rota `GET /health`, CORS liberado pra origem do `web` em dev).
+- `web/` criado via `create-next-app` (TypeScript, Tailwind, App Router, sem `src/` — decidir e manter consistência, ou com `src/`, tanto faz, só documentar aqui o que foi escolhido), com tema escuro fixo no `<html data-theme="dark">` e fontes do design system carregadas.
+- `.gitignore` raiz cobrindo `node_modules`, `.next`, `server/prisma/dev.db`, `.env*`.
+- `README.md` raiz com instruções de `npm install` + como rodar `web` e `server` em dev (duas portas).
+
+Critério de pronto:
+- `npm install` na raiz resolve as 3 workspaces sem erro.
+- `npm run dev --workspace=server` sobe o Express e `curl http://localhost:PORT/health` responde 200.
+- `npm run dev --workspace=web` sobe o Next.js e a home carrega no navegador (ou via `curl` retorna HTML) com fundo escuro.
+
+### [ ] Fase 2 — Schema Prisma + migrations
+- `server/prisma/schema.prisma` com o modelo completo (ver seção acima, refinado).
+- `npx prisma migrate dev` gerando a primeira migration, SQLite local funcionando.
+- `server/src/db.ts` exportando um `PrismaClient` singleton.
+- Script de seed opcional (`server/prisma/seed.ts`) criando uma sala de teste com 2 pilotos e algumas linhas de escala, útil pra testar as fases seguintes sem recriar dados manualmente toda hora.
+
+Critério de pronto: `npx prisma studio` (ou uma query simples num script) mostra as tabelas criadas e o seed populado.
+
+### [ ] Fase 3 — Camada de tempo real (join/create/rehydrate/presença)
+- `server/src/rooms/roomService.ts`: criar sala (gera `inviteCode` único, ex. 6 chars alfanuméricos maiúsculos sem O/0/I/1 ambíguos), buscar sala por código, montar snapshot completo pra rehydrate.
+- `server/src/socket/index.ts`: handler de conexão, `room:join`, presença em memória, `disconnect` limpando presença e emitindo `presence:update`.
+- `web/src/lib/socket.ts`: cliente socket.io singleton.
+- `web/src/hooks/useRoomSocket.ts` (ou store Zustand `web/src/state/roomStore.ts`): conecta, faz join, guarda snapshot, escuta `room:state`/`presence:update`.
+- Fluxo de identidade: helper `web/src/lib/identity.ts` lendo/gravando `localStorage` (`userId`+`name` por `inviteCode`).
+
+Critério de pronto: abrir a mesma sala em duas abas do navegador com nomes diferentes → cada uma aparece na lista de presença da outra em tempo real, e dar F5 numa aba não duplica o usuário nem perde o nome.
+
+### [ ] Fase 4 — Landing: Nova Sala / Entrar em Sala
+- `web/app/page.tsx`: dois cards grandes — "Criar nova sala" (form: nome da corrida, carro, duração — tempo ou voltas) e "Entrar em sala" (campo de código, campo de nome).
+- Ao criar: chama o servidor (REST simples `POST /rooms` ou evento de socket `room:create`), recebe `inviteCode`, navega pra `web/app/room/[code]/page.tsx`.
+- Tela de erro amigável se o código não existir.
+
+Critério de pronto: fluxo completo manual — criar sala, copiar link/código, abrir em outra aba (simulando outro dispositivo), entrar com nome, ver os dois conectados.
+
+### [ ] Fase 5 — Layout raiz da sala
+- Shell da página da sala: header fixo (nome da corrida, indicador "ao vivo" pulsante, avatares de presença, código/link de convite com botão copiar), grid de cards responsivo pro resto do conteúdo.
+- Aplicar tokens do `docs/design-system.md` via `tailwind.config.ts` (cores, fontes).
+- Componente `EditedByBadge` reutilizável (nome + tempo relativo, atualiza sozinho a cada poucos segundos).
+
+Critério de pronto: layout responsivo verificado em 375/768/1024/1440 (resize manual do navegador ou devtools), sem scroll horizontal na página.
+
+### [ ] Fase 6 — Dashboard geral
+- Card com tempo decorrido/restante (calculado a partir de `raceStartedAt` + duração — funciona tanto por tempo quanto por voltas), posição, última volta, melhor volta, gaps.
+- Indicador de janela de pit aberta/fechada (baseado em regra simples configurável por enquanto, refinada na Fase 9/11).
+- "Quem está pilotando agora" puxado da linha `ACTIVE` da planilha de escala (depende da Fase 7 pra funcionar de verdade — pode ficar com placeholder até lá).
+- Lista de conectados (reaproveita presença da Fase 3).
+
+Critério de pronto: editar manualmente posição/volta numa aba reflete instantaneamente noutra aba aberta na mesma sala.
+
+### [ ] Fase 7 — Planilha de escala (feature central)
+Esta é a mais importante — capriche.
+
+- Componente `ScheduleSheet` em `web/src/components/schedule/`: tabela com colunas horário/faixa de voltas, piloto (select), status, duração (min), observações, e uma coluna de ações (mover cima/baixo, duplicar, remover).
+- Edição inline célula-a-célula (clicar → editar → Enter confirma e desce pra célula de baixo, Esc cancela) — sem modal.
+- Reordenação: setas cima/baixo (mínimo garantido, funciona em touch) + drag-and-drop opcional como melhoria (usar `@dnd-kit/core` se der tempo; não é bloqueante).
+- Linha atual (`status=ACTIVE`) destacada; concluídas (`DONE`) esmaecidas + riscadas.
+- Painel de totais por piloto (soma de `durationMinutes` das linhas dele, planejado vs. já `DONE`), comparando com `maxStintMinutes`/`minRestMinutes` das configurações da sala e sinalizando violação.
+- Alerta visual se `soma(durationMinutes de todas as linhas) != duração total da corrida` (falta ou sobra cobertura).
+- Toda mutação emite o evento de socket correspondente (`schedule:add/update/remove/reorder`) e grava `updatedBy`/`updatedAt` por linha, mostrado via `EditedByBadge`.
+- Botão "abrir em tela cheia" (modal ou rota dedicada `web/app/room/[code]/schedule/page.tsx`).
+
+Critério de pronto: com duas abas abertas, editar uma célula numa aba aparece na outra em <1s sem F5; reordenar numa aba reflete a nova ordem na outra; totais por piloto batem com a soma manual.
+
+### [ ] Fase 8 — Gestão de combustível
+- Form rápido "registrar volta": litros usados na última volta (ou litros restantes lidos direto).
+- Cálculo: consumo médio (média móvel das últimas N voltas, configurável), litros restantes estimados, voltas restantes com o combustível atual.
+- Calculadora "quero completar X voltas → quantos litros abastecer" (usa consumo médio atual).
+- Alerta (integra com Fase 13) quando voltas restantes de combustível < voltas até o fim da janela de pit planejada.
+
+Critério de pronto: registrar consumo numa aba atualiza estimativas em todas as abas; calculadora bate com a conta manual (litros = voltas_desejadas × consumo_médio - litros_atuais, nunca negativo).
+
+### [ ] Fase 9 — Gestão de pneus
+- Composto atual + idade em voltas (incrementa a cada volta registrada, manual ou telemetria).
+- Curva de degradação configurável (ex. array de pontos `{lap, gripPercent}` ou uma fórmula linear simples com parâmetro de "queda por volta" editável nas configurações da sala) → recomendação textual de troca.
+- Histórico de stints por jogo de pneu (composto, voltas rodadas, quando trocou).
+
+Critério de pronto: trocar composto numa aba zera a idade e cria uma entrada no histórico, visível em todas as abas.
+
+### [ ] Fase 10 — Danos
+- Form rápido: parte do carro (select: aero dianteira/traseira, suspensão, freios, motor, câmbio, carroceria...), severidade (leve/moderado/severo).
+- Estimativa de tempo de reparo e impacto no ritmo por severidade (valores configuráveis nas settings da sala).
+- Lista de danos ativos, com botão "marcar como reparado" (fica no histórico).
+
+Critério de pronto: registrar dano numa aba aparece em todas, some do "ativo" e vai pro histórico ao marcar reparado.
+
+### [ ] Fase 11 — Planejador de pit stop
+- Checklist do próximo pit: combustível (litros), pneu (composto ou "mesmo"), troca de piloto (puxa direto da próxima linha `PLANNED` da escala), reparos pendentes (puxa da Fase 10).
+- Soma os tempos configurados de cada ação → estimativa de tempo total parado.
+- Botão grande "Iniciar pit stop" → "Concluir pit stop" (grava duração real, `lap`, o que foi feito) → aparece no histórico de pit stops da sala.
+- Ao concluir com troca de piloto, marca a linha da escala correspondente como `DONE` e a próxima como `ACTIVE` automaticamente.
+
+Critério de pronto: fluxo completo start→complete numa aba atualiza escala, dashboard ("quem está pilotando") e histórico em todas as abas.
+
+### [ ] Fase 12 — Timeline visual
+- Linha do tempo horizontal (ou vertical em mobile) mostrando janelas de pit e trocas de piloto planejadas (da escala) vs. executadas (dos pit stops reais), com marcador de "agora".
+
+Critério de pronto: timeline reflete visualmente os dados já existentes das Fases 7 e 11 sem duplicar estado (deriva, não guarda cópia).
+
+### [ ] Fase 13 — Sistema de alertas
+- Motor de regras simples rodando no servidor (ou client, decidir na hora — servidor é mais confiável pra "todo mundo recebe igual") verificando periodicamente: combustível baixo, pneu no fim da vida, piloto perto do limite de stint, chegada na janela de pit, stint da planilha prestes a começar (ex. faltam 2 min pro horário previsto da próxima linha `PLANNED`).
+- `alert:new` broadcast pra sala inteira; componente de toast/banner no `web` com cor por severidade (tokens já definidos no design system).
+- Alertas críticos exigem dispensa manual (clique), os demais podem auto-esconder.
+
+Critério de pronto: forçar uma condição (ex. reduzir combustível manualmente abaixo do limite) dispara o alerta em todas as abas conectadas.
+
+### [ ] Fase 14 — Integração de telemetria (best-effort, client-side)
+Seguir `docs/telemetry-api.md` à risca — não inventar campos, parser tolerante.
+
+- Toggle "Conectar telemetria local" na UI (só visível/relevante pra quem está no PC do jogo).
+- `web/src/lib/telemetry/lmuClient.ts`: fetch periódico (ex. a cada 2s) pra `http://localhost:6397/...`, com timeout curto e fallback de host (`localhost` → `127.0.0.1`).
+- Parser defensivo (todos os campos opcionais, nunca lança erro que derruba a UI).
+- Ao conseguir ler dados, emite `telemetry:push` pro servidor, que atualiza os campos relevantes da sala (com `source: 'telemetry'`) e re-emite normalmente — assim quem não tem telemetria também se beneficia.
+- Indicador visível "Telemetria conectada" (verde) / "Modo manual" (neutro) / "Falha ao conectar" (aviso, com o texto de ajuda sobre mixed content do `docs/telemetry-api.md`).
+- **Nunca bloquear a sala** se a telemetria falhar — é estritamente aditiva.
+
+Critério de pronto: com o jogo fechado (ambiente sem LMU), o toggle tenta conectar, falha de forma clara e visível, e a sala continua 100% funcional em modo manual. (Teste real com o jogo rodando fica a cargo do usuário, que tem o jogo instalado — documentar isso claramente pro usuário quando chegar nesta fase.)
+
+### [ ] Fase 15 — Exportação
+- Botão "Exportar corrida" (JSON completo da sala + CSV da planilha de escala final, no mínimo).
+- Endpoint `GET /rooms/:id/export` no servidor, gerando os arquivos a partir do estado persistido (não do estado em memória do cliente, pra garantir consistência).
+
+Critério de pronto: exportar gera um JSON válido com todas as entidades da sala e um CSV abrindo corretamente numa planilha (Excel/Sheets/LibreOffice).
+
+### [ ] Fase 16 — Polish final + guia de deploy
+- Passar o checklist de acessibilidade/responsividade do `docs/design-system.md` em todas as telas.
+- Revisar estados vazios (sala nova sem nenhum dado em cada módulo) e estados de erro (socket caiu, reconectando...).
+- Indicador de reconexão automática do socket (Socket.IO já reconecta sozinho — só precisa refletir isso na UI: "reconectando...").
+- `DEPLOY.md`: passo a passo pro usuário publicar sozinho — `web` na Vercel (variável de ambiente com a URL do servidor de socket), `server` no Railway/Render (com Postgres gerenciado deles, trocando o `provider` do Prisma e rodando `prisma migrate deploy`). Sem eu tocar em nenhuma conta.
+
+Critério de pronto: `DEPLOY.md` é seguível do zero por alguém que nunca viu o projeto.
+
+---
+
+## Coisas para lembrar entre sessões (não redescobrir)
+
+- Usuário fala português; responder em português.
+- Skill `ui-ux-pro-max` está instalada globalmente (`~/.claude/plugins/marketplaces/ui-ux-pro-max-skill/...`) mas só carrega automaticamente em sessões **novas** do Claude Code (a sessão que a instalou não a viu na lista). Se o comando `Skill` com nome `ui-ux-pro-max` falhar de novo com "Unknown skill", rodar o `search.py` diretamente:
+  ```
+  python3 ~/.claude/plugins/marketplaces/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --domain <domain>
+  ```
+- Remoto git já existe: `git@github.com:Vinii225/lemans-ultimate.git`. **Nunca dar `git push` sem o usuário pedir explicitamente** — combinado no início do projeto (2026-08-25).
+- Não implementar hierarquia de permissões/papéis — decisão explícita do usuário pra v1 ("todo mundo edita").
+- Telemetria é opcional e best-effort por design — nunca fazer nada da Fase 14 virar bloqueante de outra fase.
