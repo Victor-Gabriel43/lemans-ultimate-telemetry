@@ -2,8 +2,6 @@
 
 Painel de estratégia colaborativo em tempo real para corridas de endurance no Le Mans Ultimate. Crie uma "sala de corrida", compartilhe o código de convite com a equipe, e todo mundo edita combustível, pneus, danos, pit stops e a escala de pilotos ao vivo — sem F5.
 
-**Antes de mexer no código, leia `PASSO_A_PASSO.md`** — é o roadmap fase a fase de como o projeto foi construído, com as decisões técnicas e os porquês de cada uma. `docs/design-system.md` e `docs/telemetry-api.md` têm as decisões de UI e da integração com o jogo já pesquisadas — não redecidir sem motivo.
-
 ## Funcionalidades
 
 - **Salas de corrida**: crie uma sala nova ou entre em uma existente com um código de convite — sem login, sem cadastro.
@@ -31,8 +29,6 @@ shared/   tipos TypeScript + lógica compartilhada entre server e web (@lmu/shar
 server/   Express + Socket.IO + Prisma (tempo real e persistência)
 web/      Next.js (App Router) — frontend
 ```
-
-Banco: **Postgres** (único suportado — dev e produção; ver `PASSO_A_PASSO.md` pro porquê da troca de SQLite).
 
 ## Opção 1 — Tudo via Docker (mais simples)
 
@@ -79,4 +75,4 @@ npm run db:studio --workspace=server   # Prisma Studio (navegar o banco visualme
 
 ## Deploy
 
-Ver `DEPLOY.md` — guia completo pra publicar (Vercel + Railway/Render), incluindo a opção de usar as imagens Docker direto (`server/Dockerfile`, `web/Dockerfile`) em qualquer plataforma que rode containers.
+`server/Dockerfile` e `web/Dockerfile` buildam direto em qualquer plataforma que rode containers (Railway, Render, etc.) — `web` também pode ir pra Vercel via build nativo do Next.js. Banco: Postgres gerenciado da própria plataforma.

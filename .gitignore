@@ -75,3 +75,11 @@ docker-data/
 *.tmp
 *.temp
 .env.vault
+
+# Docs internas (só local — não publicadas no repositório remoto)
+/PASSO_A_PASSO.md
+/DEPLOY.md
+/docs/design-system.md
+/docs/telemetry-api.md
+web/AGENTS.md
+web/CLAUDE.md
