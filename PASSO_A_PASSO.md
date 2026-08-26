@@ -15,8 +15,12 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 a 9.**
-**Próxima fase a fazer: Fase 10 — Danos.**
+**Fases concluídas até agora: Fase 3 a 10.**
+**Próxima fase a fazer: Fase 11 — Planejador de pit stop.**
+
+Fase 10 testada no navegador: registrar dano severo → "Reparo estimado: 45min" / "Impacto no ritmo: ~8%" batendo exato com `damageRepairMinutesPerSeverity.SEVERE` / `damagePaceImpactPercentPerSeverity.SEVERE`; "Marcar reparado" move o item pra "Ver reparados" e o card volta a "Nenhum dano ativo" (verde). Adicionei dois settings novos em `RoomSettings` pra isso — **`damageRepairMinutesPerSeverity` e `damagePaceImpactPercentPerSeverity` são DIFERENTES de `pitActionDurationsSeconds.repairPerSeverity`** (que já existia desde a Fase 0): o primeiro par é "quanto tempo até o dano estar de fato consertado" + "quanto mais lento o carro fica enquanto isso" (o que a Fase 5/10 do pedido original pede); o segundo é "quanto tempo essa ação específica leva parado no box" (o que a Fase 11 vai somar pro tempo total de pit stop). Não confundir os dois ao implementar a Fase 11.
+
+Padrão reaproveitado sem alteração nenhuma: `server/src/rooms/damageService.ts` + handlers `damage:log`/`damage:repair` seguem exatamente a mesma estrutura de `fuelService.ts`/`tireService.ts` (broadcast da lista completa via `damage:changed`). `web/lib/damageStats.ts` + `DamagePanel.tsx` seguem o mesmo molde de `fuelStats`/`tireStats` + painel com form rápido + histórico expansível. **Esse padrão está maduro agora — a Fase 11 (pit stop) é a primeira que precisa de algo genuinamente novo** (um fluxo com estado "em andamento" tipo start→complete, e que mexe em 3 domínios de uma vez: combustível, pneu, escala).
 
 Fase 9 testada no navegador: trocar pneu cria stint (composto + volta de início vêm do `currentLap` da sala, calculado no servidor — nunca confiar no que o cliente manda pra isso), idade em voltas e grip estimado (`100 - idade × tireDegradationPercentPerLap`) recalculam **reativamente** quando o `currentLap` do dashboard muda, sem nenhum código extra de sincronização — é só consequência de `TirePanel` ler `room.currentLap` do mesmo snapshot que o dashboard edita. Confirmado com 30 voltas: 30×1.5%=45% de perda → 55% de grip, cor crítica (vermelho) e banner de recomendação de troca aparecendo corretamente (< 65% = recomenda trocar, < 80% = aviso, ver `web/lib/tireStats.ts`).
 
@@ -251,7 +255,7 @@ Critério de pronto: registrar consumo numa aba atualiza estimativas em todas as
 
 Critério de pronto: trocar composto numa aba zera a idade e cria uma entrada no histórico, visível em todas as abas.
 
-### [ ] Fase 10 — Danos
+### [x] Fase 10 — Danos
 - Form rápido: parte do carro (select: aero dianteira/traseira, suspensão, freios, motor, câmbio, carroceria...), severidade (leve/moderado/severo).
 - Estimativa de tempo de reparo e impacto no ritmo por severidade (valores configuráveis nas settings da sala).
 - Lista de danos ativos, com botão "marcar como reparado" (fica no histórico).

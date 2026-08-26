@@ -1,7 +1,17 @@
 "use client";
 
 import { create } from "zustand";
-import type { RoomSnapshot, ConnectedUser, Room, ScheduleRow, FuelEntry, TireEntry, EntrySource } from "@lmu/shared";
+import type {
+  RoomSnapshot,
+  ConnectedUser,
+  Room,
+  ScheduleRow,
+  FuelEntry,
+  TireEntry,
+  DamageEntry,
+  DamageSeverity,
+  EntrySource,
+} from "@lmu/shared";
 import { getSocket } from "@/lib/socket";
 import { getIdentity, saveIdentity } from "@/lib/identity";
 
@@ -22,6 +32,8 @@ interface RoomState {
   reorderScheduleRow: (rowId: string, direction: "up" | "down") => void;
   logFuel: (entry: { lap: number; litersUsed: number | null; litersRemaining: number | null }) => void;
   startTireStint: (compound: string) => void;
+  logDamage: (part: string, severity: DamageSeverity) => void;
+  repairDamage: (damageId: string) => void;
 }
 
 export const useRoomStore = create<RoomState>((set) => ({
@@ -122,6 +134,25 @@ export const useRoomStore = create<RoomState>((set) => ({
       createdBy: userId,
     });
   },
+
+  logDamage: (part, severity) => {
+    const { snapshot, userId } = useRoomStore.getState();
+    if (!snapshot || !userId) return;
+    getSocket().emit("damage:log", {
+      roomId: snapshot.room.id,
+      part,
+      severity,
+      repairEstimateMinutes: null,
+      source: "MANUAL",
+      createdBy: userId,
+    });
+  },
+
+  repairDamage: (damageId) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    getSocket().emit("damage:repair", { roomId: snapshot.room.id, damageId });
+  },
 }));
 
 // Listeners de socket anexados uma única vez por aba (o socket é singleton).
@@ -165,6 +196,12 @@ export function ensureRoomListenersAttached(): void {
     const { snapshot } = useRoomStore.getState();
     if (!snapshot) return;
     useRoomStore.setState({ snapshot: { ...snapshot, tireLog } });
+  });
+
+  socket.on("damage:changed", (damageLog: DamageEntry[]) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    useRoomStore.setState({ snapshot: { ...snapshot, damageLog } });
   });
 
   socket.on("connect", () => {

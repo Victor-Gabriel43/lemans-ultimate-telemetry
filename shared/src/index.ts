@@ -53,6 +53,10 @@ export interface RoomSettings {
     driverChange: number;
     repairPerSeverity: Record<DamageSeverity, number>;
   };
+  /** Estimativa de tempo até o dano estar de fato consertado (não confundir com pitActionDurationsSeconds.repairPerSeverity, que é só a ação pontual no box da Fase 11). */
+  damageRepairMinutesPerSeverity: Record<DamageSeverity, number>;
+  /** Quanto mais lento o carro fica por volta enquanto o dano não é reparado, em %. */
+  damagePaceImpactPercentPerSeverity: Record<DamageSeverity, number>;
 }
 
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
@@ -69,6 +73,16 @@ export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
       MODERATE: 60,
       SEVERE: 180,
     },
+  },
+  damageRepairMinutesPerSeverity: {
+    LIGHT: 5,
+    MODERATE: 15,
+    SEVERE: 45,
+  },
+  damagePaceImpactPercentPerSeverity: {
+    LIGHT: 1,
+    MODERATE: 3,
+    SEVERE: 8,
   },
 };
 

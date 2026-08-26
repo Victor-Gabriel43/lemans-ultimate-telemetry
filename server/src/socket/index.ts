@@ -11,6 +11,7 @@ import {
 } from "../rooms/scheduleService.js";
 import { listFuelLog, logFuelEntry } from "../rooms/fuelService.js";
 import { listTireLog, startNewTireStint } from "../rooms/tireService.js";
+import { listDamageLog, logDamageEntry, markDamageRepaired } from "../rooms/damageService.js";
 import { addPresence, removePresence, listPresence } from "./presence.js";
 
 export interface SocketData {
@@ -142,6 +143,26 @@ export function registerSocketHandlers(io: AppServer): void {
         io.to(payload.roomId).emit("tire:changed", await listTireLog(payload.roomId));
       } catch (err) {
         console.error("[socket] erro em tire:newStint", err);
+      }
+    });
+
+    socket.on("damage:log", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await logDamageEntry(payload.roomId, payload.part, payload.severity, payload.createdBy);
+        io.to(payload.roomId).emit("damage:changed", await listDamageLog(payload.roomId));
+      } catch (err) {
+        console.error("[socket] erro em damage:log", err);
+      }
+    });
+
+    socket.on("damage:repair", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await markDamageRepaired(payload.roomId, payload.damageId);
+        io.to(payload.roomId).emit("damage:changed", await listDamageLog(payload.roomId));
+      } catch (err) {
+        console.error("[socket] erro em damage:repair", err);
       }
     });
 
