@@ -8,6 +8,7 @@ import { RaceStatusCard } from "@/components/dashboard/RaceStatusCard";
 import { CurrentDriverCard } from "@/components/dashboard/CurrentDriverCard";
 import { ScheduleSheet } from "@/components/schedule/ScheduleSheet";
 import { ScheduleTotals } from "@/components/schedule/ScheduleTotals";
+import { FuelPanel } from "@/components/fuel/FuelPanel";
 
 /**
  * Dashboard da sala. O layout (app/room/[code]/layout.tsx) só renderiza
@@ -24,7 +25,7 @@ export default function RoomPage() {
       <RaceStatusCard />
 
       <CurrentDriverCard />
-      <PlaceholderCard title="Combustível" note="Fase 8" />
+      <FuelPanel />
       <PlaceholderCard title="Pneus" note="Fase 9" />
 
       <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:col-span-2 lg:col-span-3">

@@ -9,6 +9,7 @@ import {
   reorderScheduleRow,
   updateScheduleRow,
 } from "../rooms/scheduleService.js";
+import { listFuelLog, logFuelEntry } from "../rooms/fuelService.js";
 import { addPresence, removePresence, listPresence } from "./presence.js";
 
 export interface SocketData {
@@ -120,6 +121,16 @@ export function registerSocketHandlers(io: AppServer): void {
         await broadcastSchedule(payload.roomId);
       } catch (err) {
         console.error("[socket] erro em schedule:reorder", err);
+      }
+    });
+
+    socket.on("fuel:log", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await logFuelEntry(payload.roomId, payload);
+        io.to(payload.roomId).emit("fuel:changed", await listFuelLog(payload.roomId));
+      } catch (err) {
+        console.error("[socket] erro em fuel:log", err);
       }
     });
 

@@ -45,6 +45,8 @@ export interface RoomSettings {
   minRestMinutes: number;
   /** Modelo simples de degradação: % de grip perdido por volta rodada no composto atual. */
   tireDegradationPercentPerLap: number;
+  /** Capacidade do tanque em litros — usado como ponto de partida quando ninguém registrou uma leitura absoluta ainda. */
+  fuelTankLiters: number;
   pitActionDurationsSeconds: {
     fuelPerLiter: number;
     tireChange: number;
@@ -57,6 +59,7 @@ export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   maxStintMinutes: 90,
   minRestMinutes: 30,
   tireDegradationPercentPerLap: 1.5,
+  fuelTankLiters: 75,
   pitActionDurationsSeconds: {
     fuelPerLiter: 1.2,
     tireChange: 12,
@@ -218,9 +221,9 @@ export interface ClientToServerEvents {
   "schedule:remove": (payload: { roomId: string; rowId: string }) => void;
   "schedule:reorder": (payload: { roomId: string; rowId: string; direction: "up" | "down"; updatedBy: string }) => void;
 
-  "fuel:log": (payload: Omit<FuelEntry, "id" | "roomId" | "createdAt">) => void;
+  "fuel:log": (payload: Omit<FuelEntry, "id" | "roomId" | "createdAt"> & { roomId: string }) => void;
   "tire:newStint": (payload: Omit<TireEntry, "id" | "roomId" | "createdAt" | "ageLaps"> & { roomId: string }) => void;
-  "damage:log": (payload: Omit<DamageEntry, "id" | "roomId" | "createdAt" | "repairedAt">) => void;
+  "damage:log": (payload: Omit<DamageEntry, "id" | "roomId" | "createdAt" | "repairedAt"> & { roomId: string }) => void;
   "damage:repair": (payload: { roomId: string; damageId: string }) => void;
 
   "pitstop:start": (payload: { roomId: string; lap: number | null; createdBy: string }) => void;

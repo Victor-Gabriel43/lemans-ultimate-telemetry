@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { RoomSnapshot, ConnectedUser, Room, ScheduleRow } from "@lmu/shared";
+import type { RoomSnapshot, ConnectedUser, Room, ScheduleRow, FuelEntry, EntrySource } from "@lmu/shared";
 import { getSocket } from "@/lib/socket";
 import { getIdentity, saveIdentity } from "@/lib/identity";
 
@@ -20,6 +20,7 @@ interface RoomState {
   updateScheduleRow: (rowId: string, patch: Partial<ScheduleRow>) => void;
   removeScheduleRow: (rowId: string) => void;
   reorderScheduleRow: (rowId: string, direction: "up" | "down") => void;
+  logFuel: (entry: { lap: number; litersUsed: number | null; litersRemaining: number | null }) => void;
 }
 
 export const useRoomStore = create<RoomState>((set) => ({
@@ -100,6 +101,13 @@ export const useRoomStore = create<RoomState>((set) => ({
     if (!snapshot || !userId) return;
     getSocket().emit("schedule:reorder", { roomId: snapshot.room.id, rowId, direction, updatedBy: userId });
   },
+
+  logFuel: (entry) => {
+    const { snapshot, userId } = useRoomStore.getState();
+    if (!snapshot || !userId) return;
+    const source: EntrySource = "MANUAL";
+    getSocket().emit("fuel:log", { roomId: snapshot.room.id, ...entry, source, createdBy: userId });
+  },
 }));
 
 // Listeners de socket anexados uma única vez por aba (o socket é singleton).
@@ -131,6 +139,12 @@ export function ensureRoomListenersAttached(): void {
     const { snapshot } = useRoomStore.getState();
     if (!snapshot) return;
     useRoomStore.setState({ snapshot: { ...snapshot, scheduleRows } });
+  });
+
+  socket.on("fuel:changed", (fuelLog: FuelEntry[]) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    useRoomStore.setState({ snapshot: { ...snapshot, fuelLog } });
   });
 
   socket.on("connect", () => {

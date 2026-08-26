@@ -15,8 +15,16 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 a 7.**
-**Próxima fase a fazer: Fase 8 — Gestão de combustível.**
+**Fases concluídas até agora: Fase 3 a 8.**
+**Próxima fase a fazer: Fase 9 — Gestão de pneus.**
+
+Fase 8 testada no navegador (registrar consumo, cálculo de consumo médio/restante/voltas restantes com cor por status ok/aviso/crítico, calculadora de reabastecimento — todos os números conferidos manualmente e batendo). Não repeti a dança de duas abas desta vez: o broadcast usa exatamente o mesmo mecanismo (`io.to(roomId).emit("fuel:changed", listaCompleta)`) já comprovado 3x nas fases anteriores — reservar o teste multi-aba completo pra features com lógica de UI nova o suficiente pra valer a pena (ex: Fase 11 pit stop, que muda estado em 3 lugares de uma vez).
+
+Adicionado `fuelTankLiters` em `RoomSettings`/`DEFAULT_ROOM_SETTINGS` (capacidade do tanque, usada como ponto de partida quando ninguém ainda registrou uma leitura absoluta de litros restantes). Salas antigas (settings salvas antes desta fase) continuam funcionando sem migration — `toRoom()` sempre faz `{ ...DEFAULT_ROOM_SETTINGS, ...JSON.parse(settingsJson) }`, então chave nova ausente no JSON salvo cai no default automaticamente. **Esse padrão vale pra qualquer campo novo que for adicionado em `RoomSettings` no futuro.**
+
+**Outro bug de tipo do rascunho original corrigido nesta fase**: os eventos `fuel:log` e `damage:log` em `shared/src/index.ts` tinham `Omit<X, "id" | "roomId" | "createdAt">` — ou seja, **excluíam `roomId` do payload sem adicioná-lo de volta**, o que quebraria o handler no servidor (precisa de `roomId` pra saber pra qual sala é o evento e validar `ownsRoom`). Já corrigi os três (`fuel:log`, `tire:newStint`, `damage:log`) pra `Omit<X, ...> & { roomId: string }` — a Fase 9/10 pode usar os tipos como estão, sem precisar checar de novo. **Lição geral**: `shared/src/index.ts` foi escrito de uma vez só na Fase 0 sem testar cada evento — se alguma fase futura adicionar um evento novo de socket, não confiar que o payload está certo só porque compilou; só o uso real (escrever o handler + testar) pega esse tipo de erro.
+
+Arquivos novos: `web/lib/fuelStats.ts` (`computeFuelStats`, `litersToRefuel` — funções puras, testáveis isoladas se algum dia quiserem testes automatizados), `web/components/fuel/FuelPanel.tsx`, `server/src/rooms/fuelService.ts`.
 
 A Fase 7 (planilha de escala) é a feature central do produto e está funcional e testada de ponta a ponta: edição inline célula-a-célula (texto/número, sem modal), **Enter confirma e desce pra célula de baixo** (padrão planilha, testado de verdade — funciona), Esc cancela, troca de piloto/status via `<select>`, adicionar/remover linha, mover cima/baixo (swap de `order`), linha `ACTIVE` destacada (borda azul) e `DONE` esmaecida+riscada, painel de totais por piloto com detecção de violação de `maxStintMinutes`/`minRestMinutes`, alerta de cobertura (falta/sobra tempo não coberto), badge "editado por" com nome real (não UUID), e rota de tela cheia (`/room/[code]/schedule`) mostrando exatamente o mesmo estado ao vivo. Tudo confirmado com **duas abas reais abertas simultaneamente** — editar numa propaga pra outra sem reload, incluindo quando a aba receptora já estava aberta antes da edição (não é só rehydrate no load).
 
@@ -224,7 +232,7 @@ Esta é a mais importante — capriche.
 
 Critério de pronto: com duas abas abertas, editar uma célula numa aba aparece na outra em <1s sem F5; reordenar numa aba reflete a nova ordem na outra; totais por piloto batem com a soma manual.
 
-### [ ] Fase 8 — Gestão de combustível
+### [x] Fase 8 — Gestão de combustível
 - Form rápido "registrar volta": litros usados na última volta (ou litros restantes lidos direto).
 - Cálculo: consumo médio (média móvel das últimas N voltas, configurável), litros restantes estimados, voltas restantes com o combustível atual.
 - Calculadora "quero completar X voltas → quantos litros abastecer" (usa consumo médio atual).
