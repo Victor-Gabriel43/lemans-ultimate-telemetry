@@ -133,7 +133,7 @@ export function toScheduleRow(db: DbScheduleRow): ScheduleRow {
   };
 }
 
-function toPitStop(db: DbPitStop): PitStop {
+export function toPitStop(db: DbPitStop): PitStop {
   let repairs: PitStop["repairs"] = null;
   if (db.repairs) {
     try {
@@ -148,6 +148,7 @@ function toPitStop(db: DbPitStop): PitStop {
     lap: db.lap,
     fuelAddedLiters: db.fuelAddedLiters,
     tireChangeCompound: db.tireChangeCompound,
+    includeDriverChange: db.includeDriverChange,
     driverChangeToId: db.driverChangeToId,
     repairs,
     durationSeconds: db.durationSeconds,

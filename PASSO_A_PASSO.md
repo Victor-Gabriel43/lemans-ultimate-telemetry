@@ -15,8 +15,18 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 a 10.**
-**Próxima fase a fazer: Fase 11 — Planejador de pit stop.**
+**Fases concluídas até agora: Fase 3 a 11.**
+**Próxima fase a fazer: Fase 12 — Timeline visual.**
+
+Fase 11 foi a mais complexa até agora — mexe em 4 domínios de uma vez (combustível, pneu, danos, escala) — e testada de ponta a ponta com um cenário completo: planejar (15L + pneu Duro + troca de piloto + reparo) → tempo estimado calculado certo (75s = 18+12+25+20) → "Iniciar pit stop" (estado "em andamento" com cronômetro ao vivo) → "Concluir pit stop" → **todos os 4 efeitos aplicados corretamente numa única ação**: combustível foi pro tanque cheio (75L, respeitando o teto), pneu novo (Duro, 0 voltas, 100% grip), dano marcado reparado, e a escala avançou sozinha (Ana virou DONE, Bruno virou ACTIVE, "Pilotando agora" atualizou pra Bruno).
+
+**Bug de metodologia de teste descoberto e documentado (não é bug do app)**: a ferramenta `form_input` da skill `claude-in-chrome` **não acorda o `onChange` do React em checkboxes** — ela seta a propriedade `checked` do DOM diretamente, e por algum motivo isso sobrevive a re-renders subsequentes (então parece "marcado" em qualquer screenshot), mas o estado React nunca muda, então o app se comporta como se o checkbox nunca tivesse sido tocado. Um clique de verdade (`computer` com `action: "left_click"` e `ref`) funciona perfeitamente. **Regra pra próximas fases**: usar `form_input` só pra `<input type="text">`, `<input type="number">` e `<select>`; pra `<input type="checkbox">`, sempre usar clique de verdade. Se um número/estado não mudar depois de mexer num checkbox via `form_input`, checar o `checked` real via `document.querySelector(...).checked` antes de suspeitar de bug no app — foi exatamente assim que este caso foi diagnosticado (ver a sequência de investigação nesta sessão se precisar do passo a passo de novo).
+
+Peça nova de infraestrutura: `computeFuelStats`/`litersToRefuel` **foram movidas de `web/lib/fuelStats.ts` pra `shared/src/index.ts`**, porque `completePitStop` no servidor precisa exatamente do mesmo cálculo de "quanto combustível resta agora" pra aplicar o reabastecimento (`currentRemaining + fuelAddedLiters`, capado no tanque) — duplicar essa lógica entre client e server seria pedir pra desincronizar um dia. **Regra geral daqui pra frente**: qualquer cálculo que precise ser usado tanto no `web` quanto no `server` vai pra `shared/src/index.ts`, nunca duplicado. `web/lib/fuelStats.ts` foi deletado; `FuelPanel.tsx` agora importa de `"@lmu/shared"` direto.
+
+Também corrigido: `roomService.ts` tinha seu próprio `toPitStop` privado, **duplicado** do que `pitStopService.ts` precisava — consolidado num só (exportado de `roomService.ts`, reusado por `pitStopService.ts`, mesmo padrão que `scheduleService.ts` já usava pra `toScheduleRow`). E a interface `PitStop` ganhou o campo `includeDriverChange: boolean` que faltava (o Prisma schema já tinha, o tipo compartilhado não).
+
+Schema: `PitStop.includeDriverChange` (novo campo, migration `pitstop_plan`) guarda a INTENÇÃO no início do pit (antes de saber quem vai ser o próximo piloto); `driverChangeToId` só é preenchido na conclusão, puxado de `advanceActiveDriver()` em `scheduleService.ts` (nova função: marca a linha ACTIVE atual como DONE e a próxima PLANNED como ACTIVE, atomicamente numa transação). `PitStop.repairs` mudou de significado desde o rascunho original: guarda **ids de `DamageEntry`** (JSON de `string[]`), não severidades — o tipo `DamageSeverity[]` do rascunho da Fase 0 não fazia sentido pra saber QUAL dano específico foi reparado.
 
 Fase 10 testada no navegador: registrar dano severo → "Reparo estimado: 45min" / "Impacto no ritmo: ~8%" batendo exato com `damageRepairMinutesPerSeverity.SEVERE` / `damagePaceImpactPercentPerSeverity.SEVERE`; "Marcar reparado" move o item pra "Ver reparados" e o card volta a "Nenhum dano ativo" (verde). Adicionei dois settings novos em `RoomSettings` pra isso — **`damageRepairMinutesPerSeverity` e `damagePaceImpactPercentPerSeverity` são DIFERENTES de `pitActionDurationsSeconds.repairPerSeverity`** (que já existia desde a Fase 0): o primeiro par é "quanto tempo até o dano estar de fato consertado" + "quanto mais lento o carro fica enquanto isso" (o que a Fase 5/10 do pedido original pede); o segundo é "quanto tempo essa ação específica leva parado no box" (o que a Fase 11 vai somar pro tempo total de pit stop). Não confundir os dois ao implementar a Fase 11.
 
@@ -262,7 +272,7 @@ Critério de pronto: trocar composto numa aba zera a idade e cria uma entrada no
 
 Critério de pronto: registrar dano numa aba aparece em todas, some do "ativo" e vai pro histórico ao marcar reparado.
 
-### [ ] Fase 11 — Planejador de pit stop
+### [x] Fase 11 — Planejador de pit stop
 - Checklist do próximo pit: combustível (litros), pneu (composto ou "mesmo"), troca de piloto (puxa direto da próxima linha `PLANNED` da escala), reparos pendentes (puxa da Fase 10).
 - Soma os tempos configurados de cada ação → estimativa de tempo total parado.
 - Botão grande "Iniciar pit stop" → "Concluir pit stop" (grava duração real, `lap`, o que foi feito) → aparece no histórico de pit stops da sala.

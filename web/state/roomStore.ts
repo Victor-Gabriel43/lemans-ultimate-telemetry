@@ -10,6 +10,7 @@ import type {
   TireEntry,
   DamageEntry,
   DamageSeverity,
+  PitStop,
   EntrySource,
 } from "@lmu/shared";
 import { getSocket } from "@/lib/socket";
@@ -34,6 +35,14 @@ interface RoomState {
   startTireStint: (compound: string) => void;
   logDamage: (part: string, severity: DamageSeverity) => void;
   repairDamage: (damageId: string) => void;
+  startPitStop: (plan: {
+    lap: number | null;
+    fuelAddedLiters: number | null;
+    tireChangeCompound: string | null;
+    includeDriverChange: boolean;
+    repairDamageIds: string[];
+  }) => void;
+  completePitStop: (pitStopId: string) => void;
 }
 
 export const useRoomStore = create<RoomState>((set) => ({
@@ -153,6 +162,18 @@ export const useRoomStore = create<RoomState>((set) => ({
     if (!snapshot) return;
     getSocket().emit("damage:repair", { roomId: snapshot.room.id, damageId });
   },
+
+  startPitStop: (plan) => {
+    const { snapshot, userId } = useRoomStore.getState();
+    if (!snapshot || !userId) return;
+    getSocket().emit("pitstop:start", { roomId: snapshot.room.id, ...plan, createdBy: userId });
+  },
+
+  completePitStop: (pitStopId) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    getSocket().emit("pitstop:complete", { roomId: snapshot.room.id, pitStopId });
+  },
 }));
 
 // Listeners de socket anexados uma única vez por aba (o socket é singleton).
@@ -202,6 +223,12 @@ export function ensureRoomListenersAttached(): void {
     const { snapshot } = useRoomStore.getState();
     if (!snapshot) return;
     useRoomStore.setState({ snapshot: { ...snapshot, damageLog } });
+  });
+
+  socket.on("pitstop:changed", (pitStops: PitStop[]) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    useRoomStore.setState({ snapshot: { ...snapshot, pitStops } });
   });
 
   socket.on("connect", () => {

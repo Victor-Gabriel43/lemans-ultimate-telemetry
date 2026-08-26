@@ -12,6 +12,7 @@ import {
 import { listFuelLog, logFuelEntry } from "../rooms/fuelService.js";
 import { listTireLog, startNewTireStint } from "../rooms/tireService.js";
 import { listDamageLog, logDamageEntry, markDamageRepaired } from "../rooms/damageService.js";
+import { completePitStop, listPitStops, startPitStop } from "../rooms/pitStopService.js";
 import { addPresence, removePresence, listPresence } from "./presence.js";
 
 export interface SocketData {
@@ -163,6 +164,33 @@ export function registerSocketHandlers(io: AppServer): void {
         io.to(payload.roomId).emit("damage:changed", await listDamageLog(payload.roomId));
       } catch (err) {
         console.error("[socket] erro em damage:repair", err);
+      }
+    });
+
+    socket.on("pitstop:start", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await startPitStop(payload.roomId, payload);
+        io.to(payload.roomId).emit("pitstop:changed", await listPitStops(payload.roomId));
+      } catch (err) {
+        console.error("[socket] erro em pitstop:start", err);
+      }
+    });
+
+    socket.on("pitstop:complete", async (payload) => {
+      if (!ownsRoom(payload.roomId)) return;
+      try {
+        await completePitStop(payload.roomId, payload.pitStopId);
+        // conclusão pode ter mexido em combustível, pneu, danos e escala além
+        // do próprio pit stop — rebroadcast dos 5 domínios de uma vez.
+        const { roomId } = payload;
+        io.to(roomId).emit("pitstop:changed", await listPitStops(roomId));
+        io.to(roomId).emit("fuel:changed", await listFuelLog(roomId));
+        io.to(roomId).emit("tire:changed", await listTireLog(roomId));
+        io.to(roomId).emit("damage:changed", await listDamageLog(roomId));
+        await broadcastSchedule(roomId);
+      } catch (err) {
+        console.error("[socket] erro em pitstop:complete", err);
       }
     });
 

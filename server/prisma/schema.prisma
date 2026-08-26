@@ -106,8 +106,9 @@ model PitStop {
   lap                 Int?
   fuelAddedLiters     Float?
   tireChangeCompound  String?
+  includeDriverChange Boolean   @default(false)
   driverChangeToId    String?
-  repairs             String? // JSON.stringify(DamageSeverity[])
+  repairs             String? // JSON.stringify(string[]) — ids de DamageEntry, definidos no início e reparados na conclusão
   durationSeconds     Int?
   startedAt           DateTime  @default(now())
   completedAt         DateTime?

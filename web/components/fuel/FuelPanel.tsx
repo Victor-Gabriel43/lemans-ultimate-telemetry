@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Fuel } from "lucide-react";
 import { useRoomStore } from "@/state/roomStore";
-import { computeFuelStats, litersToRefuel } from "@/lib/fuelStats";
+import { computeFuelStats, litersToRefuel } from "@lmu/shared";
 
 const CRITICAL_LAPS = 1.5;
 const WARNING_LAPS = 3;
