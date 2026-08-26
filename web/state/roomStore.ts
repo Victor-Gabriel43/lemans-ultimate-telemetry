@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { RoomSnapshot, ConnectedUser } from "@lmu/shared";
+import type { RoomSnapshot, ConnectedUser, Room } from "@lmu/shared";
 import { getSocket } from "@/lib/socket";
 import { getIdentity, saveIdentity } from "@/lib/identity";
 
@@ -15,6 +15,7 @@ interface RoomState {
   name: string | null;
   snapshot: RoomSnapshot | null;
   join: (inviteCode: string, name: string) => Promise<void>;
+  updateDashboard: (patch: Partial<Room>) => void;
 }
 
 export const useRoomStore = create<RoomState>((set) => ({
@@ -54,6 +55,16 @@ export const useRoomStore = create<RoomState>((set) => ({
       );
     });
   },
+
+  updateDashboard: (patch) => {
+    const { snapshot, userId } = useRoomStore.getState();
+    if (!snapshot || !userId) return;
+    // otimista: aplica local já, o servidor confirma via "room:updated"
+    // (o próprio emissor também recebe esse evento, então não precisa
+    // reconciliar nada especial — só sobrescreve com o valor de novo).
+    useRoomStore.setState({ snapshot: { ...snapshot, room: { ...snapshot.room, ...patch } } });
+    getSocket().emit("dashboard:update", { roomId: snapshot.room.id, patch, updatedBy: userId });
+  },
 }));
 
 // Listeners de socket anexados uma única vez por aba (o socket é singleton).
@@ -73,6 +84,12 @@ export function ensureRoomListenersAttached(): void {
     const { snapshot } = useRoomStore.getState();
     if (!snapshot) return;
     useRoomStore.setState({ snapshot: { ...snapshot, connectedUsers } });
+  });
+
+  socket.on("room:updated", (room: Room) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    useRoomStore.setState({ snapshot: { ...snapshot, room } });
   });
 
   socket.on("connect", () => {

@@ -1,7 +1,7 @@
 import type { Server, Socket } from "socket.io";
 import type { ClientToServerEvents, ServerToClientEvents, ConnectedUser } from "@lmu/shared";
 import { colorForName } from "@lmu/shared";
-import { findRoomByInviteCode, getRoomSnapshot } from "../rooms/roomService.js";
+import { findRoomByInviteCode, getRoomSnapshot, updateRoomDashboard } from "../rooms/roomService.js";
 import { addPresence, removePresence, listPresence } from "./presence.js";
 
 export interface SocketData {
@@ -52,6 +52,18 @@ export function registerSocketHandlers(io: AppServer): void {
       } catch (err) {
         console.error("[socket] erro em room:join", err);
         ack({ ok: false, error: "Erro inesperado ao entrar na sala." });
+      }
+    });
+
+    socket.on("dashboard:update", async (payload) => {
+      // Só quem já deu join nesta sala (nesta conexão) pode mutar ela —
+      // evita que um cliente mande roomId de outra sala por engano/malícia.
+      if (socket.data.roomId !== payload.roomId) return;
+      try {
+        const updated = await updateRoomDashboard(payload.roomId, payload.patch);
+        io.to(payload.roomId).emit("room:updated", updated);
+      } catch (err) {
+        console.error("[socket] erro em dashboard:update", err);
       }
     });
 

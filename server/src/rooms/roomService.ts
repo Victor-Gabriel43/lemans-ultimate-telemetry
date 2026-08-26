@@ -195,6 +195,47 @@ function toAlert(db: DbAlert): Alert {
   };
 }
 
+// Campos "de placar" que qualquer um na sala pode atualizar direto (manual
+// ou, na Fase 14, via telemetria). Uma whitelist explícita — nunca aceitar
+// um Partial<Room> do cliente e gravar campos arbitrários (id, inviteCode,
+// settingsJson etc não devem ser editáveis por esse caminho).
+const DASHBOARD_EDITABLE_FIELDS = [
+  "raceStartedAt",
+  "currentLap",
+  "position",
+  "lastLapTime",
+  "bestLapTime",
+  "gapAheadSec",
+  "gapBehindSec",
+] as const;
+type DashboardEditableField = (typeof DASHBOARD_EDITABLE_FIELDS)[number];
+
+export function sanitizeDashboardPatch(patch: Partial<Room>): Partial<Pick<Room, DashboardEditableField>> {
+  const clean: Partial<Record<DashboardEditableField, unknown>> = {};
+  for (const key of DASHBOARD_EDITABLE_FIELDS) {
+    if (!(key in patch)) continue;
+    const value = patch[key];
+    if (key === "raceStartedAt") {
+      clean[key] = value === null ? null : String(value);
+    } else if (value === null) {
+      clean[key] = null;
+    } else if (typeof value === "number" && Number.isFinite(value)) {
+      clean[key] = value;
+    }
+  }
+  return clean as Partial<Pick<Room, DashboardEditableField>>;
+}
+
+export async function updateRoomDashboard(roomId: string, patch: Partial<Room>): Promise<Room> {
+  const clean = sanitizeDashboardPatch(patch);
+  const data: Record<string, unknown> = { ...clean };
+  if ("raceStartedAt" in data) {
+    data.raceStartedAt = data.raceStartedAt ? new Date(data.raceStartedAt as string) : null;
+  }
+  const updated = await prisma.room.update({ where: { id: roomId }, data });
+  return toRoom(updated);
+}
+
 /** Monta o snapshot completo da sala — usado tanto no join quanto em qualquer rehydrate. */
 export async function getRoomSnapshot(roomId: string): Promise<RoomSnapshot | null> {
   const room = await prisma.room.findUnique({

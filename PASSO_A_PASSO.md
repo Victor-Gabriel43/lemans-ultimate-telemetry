@@ -15,8 +15,20 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3, 4 e 5.**
-**Próxima fase a fazer: Fase 6 — Dashboard geral (tempo decorrido/restante, posição, gaps, quem está pilotando).**
+**Fases concluídas até agora: Fase 3, 4, 5 e 6.**
+**Próxima fase a fazer: Fase 7 — Planilha de escala (feature central).**
+
+Fase 6 testada de ponta a ponta no Chrome real: iniciar corrida, editar volta/posição/tempos inline, ver os valores propagarem ao vivo pra outra aba **e** persistirem corretamente ao reconectar (uma aba nova reabrindo a sala já chega com os valores certos e o relógio de decorrido continuando do ponto certo, não resetando — prova que o rehydrate via banco está correto, não só o push ao vivo).
+
+Peça de infraestrutura nova e importante que toda fase futura (7 a 13) vai reusar: **agora existe o primeiro handler de mutação de verdade** (`dashboard:update` no server + `updateDashboard` no client), estabelecendo o padrão a repetir:
+- Servidor: sempre validar `socket.data.roomId === payload.roomId` antes de mutar (só quem deu join na sala pode editá-la — ver `server/src/socket/index.ts`), sanitizar o patch contra uma whitelist explícita de campos editáveis (nunca aceitar `Partial<X>` cru do cliente direto pro Prisma — ver `sanitizeDashboardPatch` em `roomService.ts`), persistir, e só then fazer `io.to(roomId).emit(...)` com o dado atualizado.
+- Cliente: a action do Zustand aplica a mudança **otimisticamente** no estado local (pra sensação de "clicou, já mudou") e emite o evento; como o servidor reemite o valor confirmado pra sala inteira **incluindo quem editou**, não precisa de nenhuma reconciliação especial no emissor — o "eco" do próprio evento apenas confirma/sobrescreve com o valor real do banco.
+
+Componentes novos: `web/components/EditableStat.tsx` (clique pra editar número, sem modal — Enter/blur salva, Esc cancela; **reusar isso na Fase 8/9/10** em vez de reinventar um padrão de edição diferente), `web/components/dashboard/{RaceStatusCard,CurrentDriverCard}.tsx`, `web/lib/format.ts` (`formatClock`, `formatLapTime`, `formatGap`).
+
+Decisão de escopo consciente: os campos do dashboard (posição, tempos, gaps) **não têm rastreamento de "editado por" por campo** — só `ScheduleRow` e as tabelas de log (Fuel/Tire/Damage/PitStop) têm `updatedBy`/`createdBy` no schema, porque o pedido do usuário enfatiza rastreabilidade especialmente na planilha de escala. Se no futuro quiserem "editado por" também nos números do dashboard, precisa adicionar colunas extras no `Room` (ex: `positionUpdatedBy`) — não existe hoje.
+
+Pegadinha de lint encontrada: o ESLint do Next 16 tem a regra `react-hooks/purity`, que **proíbe chamar `Date.now()`/`new Date()` direto no corpo de um componente** (só dentro de efeitos/handlers). `RaceStatusCard` guarda um `now` em `useState` atualizado via `setInterval` dentro de `useEffect`, em vez de chamar `Date.now()` no render. Lembrar disso em qualquer componente futuro que precise de "agora" (timeline da Fase 12, alertas da Fase 13).
 
 Fase 5 testada visualmente no Chrome real (header sticky com blur, presença no header, botão de copiar convite com feedback de "copiado", grid de cards responsivo). Uma limitação de ambiente pra lembrar: a ferramenta `resize_window` da skill `claude-in-chrome` **não consegue ir abaixo de ~750px de largura neste ambiente** (parece ter um piso de janela do SO/Chrome) — não dá pra tirar screenshot real em 375px por aqui. Verificação em mobile de verdade (viewport < 640px) precisa ser feita pelo usuário no devtools do próprio navegador ou celular real; o que dá pra garantir por código é que as classes Tailwind seguem mobile-first corretamente (sem prefixo = 1 coluna, `sm:`/`lg:` adicionam colunas a partir de 640px/1024px).
 
@@ -178,7 +190,7 @@ Critério de pronto: fluxo completo manual — criar sala, copiar link/código, 
 
 Critério de pronto: layout responsivo verificado em 375/768/1024/1440 (resize manual do navegador ou devtools), sem scroll horizontal na página.
 
-### [ ] Fase 6 — Dashboard geral
+### [x] Fase 6 — Dashboard geral
 - Card com tempo decorrido/restante (calculado a partir de `raceStartedAt` + duração — funciona tanto por tempo quanto por voltas), posição, última volta, melhor volta, gaps.
 - Indicador de janela de pit aberta/fechada (baseado em regra simples configurável por enquanto, refinada na Fase 9/11).
 - "Quem está pilotando agora" puxado da linha `ACTIVE` da planilha de escala (depende da Fase 7 pra funcionar de verdade — pode ficar com placeholder até lá).
