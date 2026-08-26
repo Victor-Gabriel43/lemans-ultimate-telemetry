@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { RoomSnapshot, ConnectedUser, Room, ScheduleRow, FuelEntry, EntrySource } from "@lmu/shared";
+import type { RoomSnapshot, ConnectedUser, Room, ScheduleRow, FuelEntry, TireEntry, EntrySource } from "@lmu/shared";
 import { getSocket } from "@/lib/socket";
 import { getIdentity, saveIdentity } from "@/lib/identity";
 
@@ -21,6 +21,7 @@ interface RoomState {
   removeScheduleRow: (rowId: string) => void;
   reorderScheduleRow: (rowId: string, direction: "up" | "down") => void;
   logFuel: (entry: { lap: number; litersUsed: number | null; litersRemaining: number | null }) => void;
+  startTireStint: (compound: string) => void;
 }
 
 export const useRoomStore = create<RoomState>((set) => ({
@@ -108,6 +109,19 @@ export const useRoomStore = create<RoomState>((set) => ({
     const source: EntrySource = "MANUAL";
     getSocket().emit("fuel:log", { roomId: snapshot.room.id, ...entry, source, createdBy: userId });
   },
+
+  startTireStint: (compound) => {
+    const { snapshot, userId } = useRoomStore.getState();
+    if (!snapshot || !userId) return;
+    getSocket().emit("tire:newStint", {
+      roomId: snapshot.room.id,
+      compound,
+      stintStartLap: snapshot.room.currentLap ?? 0,
+      wearPercent: null,
+      source: "MANUAL",
+      createdBy: userId,
+    });
+  },
 }));
 
 // Listeners de socket anexados uma única vez por aba (o socket é singleton).
@@ -145,6 +159,12 @@ export function ensureRoomListenersAttached(): void {
     const { snapshot } = useRoomStore.getState();
     if (!snapshot) return;
     useRoomStore.setState({ snapshot: { ...snapshot, fuelLog } });
+  });
+
+  socket.on("tire:changed", (tireLog: TireEntry[]) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    useRoomStore.setState({ snapshot: { ...snapshot, tireLog } });
   });
 
   socket.on("connect", () => {

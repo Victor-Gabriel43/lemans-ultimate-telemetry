@@ -15,8 +15,12 @@
 
 ## Status Atual
 
-**Fases concluídas até agora: Fase 3 a 8.**
-**Próxima fase a fazer: Fase 9 — Gestão de pneus.**
+**Fases concluídas até agora: Fase 3 a 9.**
+**Próxima fase a fazer: Fase 10 — Danos.**
+
+Fase 9 testada no navegador: trocar pneu cria stint (composto + volta de início vêm do `currentLap` da sala, calculado no servidor — nunca confiar no que o cliente manda pra isso), idade em voltas e grip estimado (`100 - idade × tireDegradationPercentPerLap`) recalculam **reativamente** quando o `currentLap` do dashboard muda, sem nenhum código extra de sincronização — é só consequência de `TirePanel` ler `room.currentLap` do mesmo snapshot que o dashboard edita. Confirmado com 30 voltas: 30×1.5%=45% de perda → 55% de grip, cor crítica (vermelho) e banner de recomendação de troca aparecendo corretamente (< 65% = recomenda trocar, < 80% = aviso, ver `web/lib/tireStats.ts`).
+
+Histórico de stints (`computeStintHistory`) deriva a duração de cada stint pela volta de início do PRÓXIMO stint (ou pela volta atual, pro stint em uso) — não guarda "duração" como campo, calcula na hora. Esse é o mesmo princípio já usado na Fase 7 (planilha) e na Timeline (Fase 12 vai reusar de novo): **preferir derivar do que já existe a guardar estado redundante**.
 
 Fase 8 testada no navegador (registrar consumo, cálculo de consumo médio/restante/voltas restantes com cor por status ok/aviso/crítico, calculadora de reabastecimento — todos os números conferidos manualmente e batendo). Não repeti a dança de duas abas desta vez: o broadcast usa exatamente o mesmo mecanismo (`io.to(roomId).emit("fuel:changed", listaCompleta)`) já comprovado 3x nas fases anteriores — reservar o teste multi-aba completo pra features com lógica de UI nova o suficiente pra valer a pena (ex: Fase 11 pit stop, que muda estado em 3 lugares de uma vez).
 
@@ -240,7 +244,7 @@ Critério de pronto: com duas abas abertas, editar uma célula numa aba aparece 
 
 Critério de pronto: registrar consumo numa aba atualiza estimativas em todas as abas; calculadora bate com a conta manual (litros = voltas_desejadas × consumo_médio - litros_atuais, nunca negativo).
 
-### [ ] Fase 9 — Gestão de pneus
+### [x] Fase 9 — Gestão de pneus
 - Composto atual + idade em voltas (incrementa a cada volta registrada, manual ou telemetria).
 - Curva de degradação configurável (ex. array de pontos `{lap, gripPercent}` ou uma fórmula linear simples com parâmetro de "queda por volta" editável nas configurações da sala) → recomendação textual de troca.
 - Histórico de stints por jogo de pneu (composto, voltas rodadas, quando trocou).

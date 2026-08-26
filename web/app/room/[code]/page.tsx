@@ -9,6 +9,7 @@ import { CurrentDriverCard } from "@/components/dashboard/CurrentDriverCard";
 import { ScheduleSheet } from "@/components/schedule/ScheduleSheet";
 import { ScheduleTotals } from "@/components/schedule/ScheduleTotals";
 import { FuelPanel } from "@/components/fuel/FuelPanel";
+import { TirePanel } from "@/components/tires/TirePanel";
 
 /**
  * Dashboard da sala. O layout (app/room/[code]/layout.tsx) só renderiza
@@ -26,7 +27,7 @@ export default function RoomPage() {
 
       <CurrentDriverCard />
       <FuelPanel />
-      <PlaceholderCard title="Pneus" note="Fase 9" />
+      <TirePanel />
 
       <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:col-span-2 lg:col-span-3">
         <div className="flex items-center justify-between">
