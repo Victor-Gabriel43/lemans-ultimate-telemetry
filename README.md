@@ -4,6 +4,26 @@ Painel de estratégia colaborativo em tempo real para corridas de endurance no L
 
 **Antes de mexer no código, leia `PASSO_A_PASSO.md`** — é o roadmap fase a fase de como o projeto foi construído, com as decisões técnicas e os porquês de cada uma. `docs/design-system.md` e `docs/telemetry-api.md` têm as decisões de UI e da integração com o jogo já pesquisadas — não redecidir sem motivo.
 
+## Funcionalidades
+
+- **Salas de corrida**: crie uma sala nova ou entre em uma existente com um código de convite — sem login, sem cadastro.
+- **Dashboard geral**: status da corrida, estatísticas editáveis por qualquer participante e piloto atual em destaque.
+- **Escala de pilotos**: planilha colaborativa em tempo real (reordenar stints com setas, editar direto na tabela).
+- **Combustível, pneus e danos**: controle dedicado pra cada um, todos sincronizados ao vivo entre os participantes.
+- **Planejador de pit stop**: monta o plano (combustível + pneu + troca de piloto + reparos), com opção de cancelar um pit stop iniciado por engano.
+- **Timeline visual** da corrida a partir dos stints escalados.
+- **Alertas**: toasts derivados do estado da sala (ex. cobertura de horário), sem persistência.
+- **Telemetria local (opcional, best-effort)**: conecta em `http://localhost:6397` no PC que roda o jogo e alimenta a sala automaticamente — nunca bloqueia o uso manual se falhar.
+- **Exportação**: JSON completo da sala + CSV da escala final, gerados a partir do estado persistido no servidor.
+- Tudo em tempo real via Socket.IO — qualquer participante edita, todo mundo vê a atualização na hora, sem F5. Não há hierarquia de permissões: todo mundo pode editar tudo (decisão explícita de escopo da v1).
+
+## Stack
+
+- **shared**: TypeScript — tipos e lógica compartilhada entre `server` e `web` (`@lmu/shared`).
+- **server**: Express + Socket.IO + Prisma (build de produção via esbuild).
+- **web**: Next.js 16 (App Router) + React 19 + Zustand + Tailwind CSS 4.
+- **Banco**: Postgres (único suportado — dev e produção).
+
 ## Estrutura
 
 ```
