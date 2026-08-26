@@ -1,0 +1,56 @@
+# Sobe a aplicação inteira containerizada: Postgres + server (Express/
+# Socket.IO/Prisma) + web (Next.js). Uso: `docker compose up --build`.
+#
+# IMPORTANTE sobre NEXT_PUBLIC_SERVER_URL: é a URL que o NAVEGADOR do
+# usuário usa pra falar com o server — por isso é "http://localhost:4001"
+# (a porta publicada no host), não "http://server:4001" (esse nome só
+# resolve DENTRO da rede interna do Docker, entre containers, nunca do
+# navegador de quem está acessando de fora).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lmu
+      POSTGRES_PASSWORD: lmu
+      POSTGRES_DB: lmu
+    ports:
+      # 5433 no host pra não colidir com um Postgres já instalado
+      # nativamente na máquina, se houver — dentro da rede do Docker os
+      # outros serviços continuam falando com "postgres:5432" normalmente.
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lmu"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://lmu:lmu@postgres:5432/lmu"
+      PORT: "4001"
+      WEB_ORIGIN: "http://localhost:3000"
+    ports:
+      - "4001:4001"
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        NEXT_PUBLIC_SERVER_URL: "http://localhost:4001"
+    depends_on:
+      - server
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

@@ -12,19 +12,41 @@ server/   Express + Socket.IO + Prisma (tempo real e persistência)
 web/      Next.js (App Router) — frontend
 ```
 
-## Rodando localmente
+Banco: **Postgres** (único suportado — dev e produção; ver `PASSO_A_PASSO.md` pro porquê da troca de SQLite).
+
+## Opção 1 — Tudo via Docker (mais simples)
 
 ```bash
-npm install                 # na raiz — instala as 3 workspaces de uma vez
-
-npm run dev:server          # sobe o servidor (padrão: http://localhost:4001)
-npm run dev:web             # em outro terminal — sobe o Next.js (http://localhost:3000)
+docker compose up --build
 ```
 
-Banco local: SQLite, zero setup (`server/prisma/dev.db`, gitignored). Primeira vez: copie `server/.env.example` pra `server/.env`, rode `npx prisma migrate dev` dentro de `server/` se `dev.db` ainda não existir, e opcionalmente `npm run db:seed --workspace=server` pra criar a sala de teste `DEV001` com dados de exemplo.
+Sobe Postgres + server + web já conectados entre si. `web` fica em [http://localhost:3000](http://localhost:3000), `server` em `http://localhost:4001`. As migrations do Prisma rodam sozinhas ao subir o container do `server` (não precisa fazer nada manual). Pra popular a sala de teste `DEV001`:
 
-Variáveis de ambiente (opcionais em dev, têm default — ver `server/.env.example` e `web/.env.example`):
-- `server`: `PORT` (default `4001`), `WEB_ORIGIN` (default `http://localhost:3000`), `DATABASE_URL` (default `file:./dev.db`).
+```bash
+docker compose exec -w /app/server server npx tsx prisma/seed.ts
+```
+
+Parar tudo: `docker compose down` (ou `docker compose down -v` pra apagar os dados do Postgres também).
+
+## Opção 2 — App local + Postgres no Docker (mais rápido pra desenvolver)
+
+Só o banco containerizado; `server`/`web` rodam local com hot-reload de verdade.
+
+```bash
+docker compose up -d postgres    # só o banco, publicado em localhost:5433
+
+npm install                      # na raiz — instala as 3 workspaces de uma vez
+cp server/.env.example server/.env   # já aponta pro Postgres do compose
+
+npx prisma migrate dev --schema=server/prisma/schema.prisma   # primeira vez só
+npm run db:seed --workspace=server                             # opcional: cria a sala DEV001
+
+npm run dev:server               # http://localhost:4001
+npm run dev:web                  # em outro terminal — http://localhost:3000
+```
+
+Variáveis de ambiente (ver `server/.env.example` e `web/.env.example`):
+- `server`: `PORT` (default `4001`), `WEB_ORIGIN` (default `http://localhost:3000`), `DATABASE_URL`.
 - `web`: `NEXT_PUBLIC_SERVER_URL` (default `http://localhost:4001`).
 
 ## Scripts úteis (server)
@@ -37,4 +59,4 @@ npm run db:studio --workspace=server   # Prisma Studio (navegar o banco visualme
 
 ## Deploy
 
-Ver `DEPLOY.md` — guia completo pra publicar (Vercel + Railway/Render), incluindo a troca de SQLite pra Postgres em produção.
+Ver `DEPLOY.md` — guia completo pra publicar (Vercel + Railway/Render), incluindo a opção de usar as imagens Docker direto (`server/Dockerfile`, `web/Dockerfile`) em qualquer plataforma que rode containers.

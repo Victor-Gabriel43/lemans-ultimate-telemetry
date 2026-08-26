@@ -1,24 +1,33 @@
 // Schema Prisma — ver PASSO_A_PASSO.md (seção "Modelo de dados") para o
 // racional de cada campo antes de alterar.
 //
-// Decisão: nenhum campo usa `enum` nativo do Prisma, scalar list
-// (String[]) nem `Json` — o conector SQLite (usado em dev) não suporta
-// nenhum dos três de forma portável para Postgres (produção). `Json` em
-// especial: o Prisma 5 recusa esse tipo de campo no schema quando o
-// provider é sqlite (erro de validação, não é limitação de runtime).
-// Em vez disso: `String` simples pros campos de "enum" (validados na
-// camada de serviço contra as unions de @lmu/shared) e `String` com
-// JSON.stringify/parse manual pra listas/objetos (`repairs`,
-// `settingsJson`) — ver server/src/db.ts para os helpers de (de)serialização.
-// Isso deixa o schema idêntico entre SQLite e Postgres, então trocar o
-// provider no deploy (Fase 16) não exige tocar nos models.
+// Decisão histórica (Fase 0-16, agora obsoleta em parte): o projeto rodou
+// em SQLite localmente e foi desenhado desde o início pra trocar pra
+// Postgres sem tocar nos models — nenhum campo usa `enum` nativo do
+// Prisma, scalar list (String[]) nem `Json` (o conector SQLite não
+// suportava nenhum dos três de forma portável). Em vez disso: `String`
+// simples pros campos de "enum" (validados na camada de serviço contra as
+// unions de @lmu/shared) e `String` com JSON.stringify/parse manual pra
+// listas/objetos (`repairs`, `settingsJson`) — ver server/src/db.ts.
+//
+// Setup Docker (pedido do usuário depois da Fase 16): esse desenho pagou
+// dividendo — trocar o `provider` abaixo pra "postgresql" não exigiu
+// mudar NENHUM model, só regenerar as migrations (SQL de SQLite não é
+// válido em Postgres, tiveram que ser recriadas do zero contra um
+// Postgres real). Postgres agora é o único banco suportado — dev local
+// também usa Postgres via `docker compose up postgres`, não SQLite.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" cobre rodar fora de container (Linux/Mac/Windows, glibc);
+  // "linux-musl-openssl-3.0.x" é o Alpine usado nos Dockerfiles — sem os
+  // dois, o client gerado em dev local não roda dentro do container (ou
+  // vice-versa) porque o binário do query engine é específico da libc.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
