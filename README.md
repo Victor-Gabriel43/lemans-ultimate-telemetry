@@ -2,6 +2,8 @@
 
 Painel de estratégia colaborativo em tempo real para corridas de endurance no Le Mans Ultimate. Crie uma "sala de corrida", compartilhe o código de convite com a equipe, e todo mundo edita combustível, pneus, danos, pit stops e a escala de pilotos ao vivo — sem F5.
 
+**App em produção**: https://lemans-ultimate.vercel.app
+
 ## Funcionalidades
 
 - **Salas de corrida**: crie uma sala nova ou entre em uma existente com um código de convite — sem login, sem cadastro.
@@ -75,4 +77,6 @@ npm run db:studio --workspace=server   # Prisma Studio (navegar o banco visualme
 
 ## Deploy
 
-`server/Dockerfile` e `web/Dockerfile` buildam direto em qualquer plataforma que rode containers (Railway, Render, etc.) — `web` também pode ir pra Vercel via build nativo do Next.js. Banco: Postgres gerenciado da própria plataforma.
+Em produção: `web` na Vercel, `server` no Render, banco na Neon — todos free tier. Guia completo (passo a passo + pegadinhas encontradas) em [`DEPLOY.md`](./DEPLOY.md).
+
+`server/Dockerfile` e `web/Dockerfile` buildam direto em qualquer plataforma que rode containers (Render, Railway, etc.) — `web` também pode ir pra Vercel via build nativo do Next.js. Banco: Postgres gerenciado (Neon, Supabase, ou o Postgres da própria plataforma de hosting).
