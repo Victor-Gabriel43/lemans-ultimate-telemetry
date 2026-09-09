@@ -19,7 +19,7 @@ export function ScheduleTotals() {
     <div className="flex flex-col gap-3">
       {coverage && (
         <div
-          className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+          className={`flex items-start gap-2 border px-3 py-2 text-sm ${
             Math.abs(coverage.diff) < 1
               ? "border-status-ok/40 bg-status-ok/10 text-status-ok"
               : "border-status-warning/40 bg-status-warning/10 text-status-warning"
@@ -45,17 +45,17 @@ export function ScheduleTotals() {
           const driver = drivers.find((d) => d.id === stat.driverId);
           if (!driver) return null;
           return (
-            <div key={stat.driverId} className="rounded-md border border-border bg-surface-raised px-3 py-2">
-              <div className="flex items-center justify-between">
+            <div key={stat.driverId} className="border border-border bg-surface-raised px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 font-medium">
                   <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    className="h-2.5 w-2.5 shrink-0"
                     style={{ backgroundColor: driver.colorHex }}
                     aria-hidden
                   />
                   {driver.name}
                 </span>
-                <span className="font-mono text-sm tabular-nums text-text-muted">
+                <span className="font-mono text-xs tabular-nums text-text-muted">
                   {formatMinutes(stat.totalDoneMinutes)} / {formatMinutes(stat.totalPlannedMinutes)}
                 </span>
               </div>

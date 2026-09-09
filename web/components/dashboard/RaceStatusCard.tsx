@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { Flag } from "lucide-react";
 import { useRoomStore } from "@/state/roomStore";
-import { formatClock, formatGap, formatLapTime } from "@/lib/format";
+import { formatClock, formatGap, formatLapTime, formatMinutes } from "@/lib/format";
 import { EditableStat } from "@/components/EditableStat";
+import { Panel, Metric, primaryButton } from "@/components/ui/Panel";
+import { useValueFlash } from "@/lib/useValueFlash";
 
 export function RaceStatusCard() {
   const room = useRoomStore((s) => s.snapshot!.room);
@@ -12,8 +14,7 @@ export function RaceStatusCard() {
   const [now, setNow] = useState(() => Date.now());
 
   // atualiza o relógio de decorrido/restante a cada segundo — Date.now() só
-  // roda dentro do efeito, nunca direto no corpo do componente (regra do
-  // react-hooks/purity: render tem que ser determinístico).
+  // roda dentro do efeito, nunca direto no corpo do componente.
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -28,45 +29,62 @@ export function RaceStatusCard() {
       ? Math.max(0, room.raceDurationValue - room.currentLap)
       : null;
 
-  return (
-    <section className="rounded-lg border border-border bg-surface p-4 sm:col-span-2 lg:col-span-3">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">Status da corrida</h2>
-        {startedAtMs == null && (
-          <span className="text-xs text-text-muted">
-            Duração: {room.raceDurationType === "TIME" ? `${room.raceDurationValue} min` : `${room.raceDurationValue} voltas`}
-          </span>
-        )}
-      </div>
+  const lapFlash = useValueFlash(room.currentLap);
+  const posFlash = useValueFlash(room.position);
 
+  return (
+    <Panel
+      title="Main Race Status"
+      className="lg:col-span-12"
+      actions={
+        startedAtMs == null ? (
+          <span className="eyebrow">
+            Duração{" "}
+            {room.raceDurationType === "TIME"
+              ? formatMinutes(room.raceDurationValue)
+              : `${room.raceDurationValue} voltas`}
+          </span>
+        ) : null
+      }
+    >
       {startedAtMs == null ? (
         <button
           type="button"
           onClick={() => updateDashboard({ raceStartedAt: new Date().toISOString() })}
-          className="flex min-h-12 cursor-pointer items-center gap-2 rounded-md bg-brand px-4 py-3 font-medium text-brand-fg transition-opacity hover:opacity-90"
+          className={primaryButton}
         >
-          <Flag size={18} aria-hidden />
+          <Flag size={16} aria-hidden />
           Iniciar corrida agora
         </button>
       ) : (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
-          <Stat label="Decorrido" value={formatClock(elapsedSec)} />
-          <Stat
+        <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-8">
+          <Metric label="Decorrido" value={formatClock(elapsedSec)} size="lg" />
+          <Metric
             label="Restante"
-            value={remainingSec != null ? formatClock(remainingSec) : remainingLaps != null ? `${remainingLaps} voltas` : "—"}
-            critical={remainingSec != null && remainingSec < 0}
+            value={
+              remainingSec != null
+                ? formatClock(remainingSec)
+                : remainingLaps != null
+                  ? `${remainingLaps}`
+                  : "—"
+            }
+            unit={remainingSec == null && remainingLaps != null ? "voltas" : undefined}
+            size="lg"
+            tone={remainingSec != null && remainingSec < 0 ? "critical" : "default"}
           />
           <EditableStat
             label="Volta"
             value={room.currentLap}
             displayValue={room.currentLap != null ? String(room.currentLap) : "—"}
             onSave={(v) => updateDashboard({ currentLap: v })}
+            className={lapFlash}
           />
           <EditableStat
             label="Posição"
             value={room.position}
             displayValue={room.position != null ? `P${room.position}` : "—"}
             onSave={(v) => updateDashboard({ position: v != null ? Math.round(v) : null })}
+            className={posFlash}
           />
           <EditableStat
             label="Última volta"
@@ -94,15 +112,6 @@ export function RaceStatusCard() {
           />
         </div>
       )}
-    </section>
-  );
-}
-
-function Stat({ label, value, critical = false }: { label: string; value: string; critical?: boolean }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs uppercase tracking-wide text-text-muted">{label}</span>
-      <span className={`font-mono text-xl tabular-nums ${critical ? "text-status-critical" : ""}`}>{value}</span>
-    </div>
+    </Panel>
   );
 }

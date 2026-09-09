@@ -4,6 +4,7 @@ import { create } from "zustand";
 import type {
   RoomSnapshot,
   ConnectedUser,
+  Driver,
   Room,
   ScheduleRow,
   FuelEntry,
@@ -26,7 +27,12 @@ interface RoomState {
   name: string | null;
   snapshot: RoomSnapshot | null;
   join: (inviteCode: string, name: string) => Promise<void>;
+  /** Limpa todo o estado de sala (usado ao sair de uma sala / voltar pra Home). */
+  reset: () => void;
   updateDashboard: (patch: Partial<Room>) => void;
+  addDriver: (name: string) => void;
+  updateDriver: (driverId: string, patch: { name?: string; colorHex?: string }) => void;
+  removeDriver: (driverId: string) => void;
   addScheduleRow: (afterRowId?: string) => void;
   updateScheduleRow: (rowId: string, patch: Partial<ScheduleRow>) => void;
   removeScheduleRow: (rowId: string) => void;
@@ -44,6 +50,7 @@ interface RoomState {
     fuelAddedLiters: number | null;
     tireChangeCompound: string | null;
     includeDriverChange: boolean;
+    driverChangeToId?: string | null;
     repairDamageIds: string[];
   }) => void;
   completePitStop: (pitStopId: string) => void;
@@ -63,7 +70,20 @@ export const useRoomStore = create<RoomState>((set) => ({
     const existing = getIdentity(inviteCode);
     const socket = getSocket();
 
-    set({ status: "connecting", errorMessage: null, inviteCode, name });
+    // Entrar numa sala diferente da que está em memória: descarta o snapshot
+    // anterior AGORA, senão o layout renderiza a sala antiga durante o join
+    // (essa é a causa visível do "join volta pra sala errada").
+    const prev = useRoomStore.getState();
+    const switchingRoom = prev.inviteCode != null && prev.inviteCode !== inviteCode;
+
+    set({
+      status: "connecting",
+      errorMessage: null,
+      inviteCode,
+      name,
+      snapshot: switchingRoom ? null : prev.snapshot,
+      userId: switchingRoom ? null : prev.userId,
+    });
 
     await new Promise<void>((resolve) => {
       socket.emit(
@@ -86,6 +106,36 @@ export const useRoomStore = create<RoomState>((set) => ({
         }
       );
     });
+  },
+
+  reset: () => {
+    set({
+      status: "idle",
+      errorMessage: null,
+      inviteCode: null,
+      userId: null,
+      name: null,
+      snapshot: null,
+    });
+  },
+
+  addDriver: (name) => {
+    const { snapshot } = useRoomStore.getState();
+    const trimmed = name.trim();
+    if (!snapshot || !trimmed) return;
+    getSocket().emit("driver:add", { roomId: snapshot.room.id, name: trimmed });
+  },
+
+  updateDriver: (driverId, patch) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    getSocket().emit("driver:update", { roomId: snapshot.room.id, driverId, patch });
+  },
+
+  removeDriver: (driverId) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    getSocket().emit("driver:remove", { roomId: snapshot.room.id, driverId });
   },
 
   updateDashboard: (patch) => {
@@ -218,6 +268,12 @@ export function ensureRoomListenersAttached(): void {
     useRoomStore.setState({ snapshot: { ...snapshot, room } });
   });
 
+  socket.on("driver:changed", (drivers: Driver[]) => {
+    const { snapshot } = useRoomStore.getState();
+    if (!snapshot) return;
+    useRoomStore.setState({ snapshot: { ...snapshot, drivers } });
+  });
+
   socket.on("schedule:changed", (scheduleRows: ScheduleRow[]) => {
     const { snapshot } = useRoomStore.getState();
     if (!snapshot) return;
@@ -250,12 +306,17 @@ export function ensureRoomListenersAttached(): void {
 
   socket.on("connect", () => {
     const { status, inviteCode, name } = useRoomStore.getState();
-    if (status === "joined" || status === "reconnecting") {
-      if (inviteCode && name) {
-        useRoomStore.setState({ status: "reconnecting" });
-        void useRoomStore.getState().join(inviteCode, name);
-      }
+    if (status !== "joined" && status !== "reconnecting") return;
+    if (!inviteCode || !name) return;
+    // Só refaz o join automático se o usuário ainda estiver NA página desta
+    // sala — senão, uma reconexão do socket enquanto ele está na Home (ou já
+    // em outra sala) traria de volta o estado da sala antiga (BUG do "join
+    // volta pra sala errada").
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith(`/room/${inviteCode}`)) {
+      return;
     }
+    useRoomStore.setState({ status: "reconnecting" });
+    void useRoomStore.getState().join(inviteCode, name);
   });
 
   socket.on("disconnect", () => {

@@ -6,6 +6,8 @@ import { useRoomStore } from "@/state/roomStore";
 import { computeStintHistory, computeTireStats } from "@/lib/tireStats";
 import { resolveMemberName } from "@/lib/members";
 import { formatRelativeTime } from "@/lib/relativeTime";
+import { Panel, Metric, fieldInput } from "@/components/ui/Panel";
+import { useValueFlash } from "@/lib/useValueFlash";
 
 const COMPOUNDS = ["Macio", "Médio", "Duro", "Chuva"];
 
@@ -19,40 +21,43 @@ export function TirePanel() {
 
   const stats = computeTireStats(tireLog, room.currentLap, room.settings);
   const history = computeStintHistory(tireLog, room.currentLap);
+  const flash = useValueFlash(stats.current?.id ?? null);
 
-  const gripColor =
-    stats.gripPercent < 65 ? "text-status-critical" : stats.gripPercent < 80 ? "text-status-warning" : "text-status-ok";
+  const tone =
+    stats.gripPercent < 65 ? "critical" : stats.gripPercent < 80 ? "warning" : "ok";
+  const barColor =
+    tone === "critical" ? "bg-status-critical" : tone === "warning" ? "bg-status-warning" : "bg-brand";
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
-      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-        <CircleDot size={14} aria-hidden />
-        Pneus
-      </h2>
-
+    <Panel title="Tyres" icon={<CircleDot size={13} aria-hidden />} className="lg:col-span-4">
       {stats.current ? (
-        <div className="grid grid-cols-3 gap-3">
-          <Stat label="Composto" value={stats.current.compound} />
-          <Stat label="Idade" value={`${stats.ageLaps} voltas`} />
-          <Stat label="Grip estimado" value={`${stats.gripPercent.toFixed(0)}%`} className={gripColor} />
+        <div className={`flex flex-col gap-3 ${flash}`}>
+          <div className="grid grid-cols-3 gap-3">
+            <Metric label="Composto" value={stats.current.compound} size="sm" />
+            <Metric label="Idade" value={String(stats.ageLaps)} unit="v" size="sm" />
+            <Metric label="Grip est." value={stats.gripPercent.toFixed(0)} unit="%" tone={tone} size="sm" />
+          </div>
+          <div className="h-1.5 w-full bg-surface-raised">
+            <div className={`h-full ${barColor}`} style={{ width: `${Math.max(0, Math.min(100, stats.gripPercent))}%` }} />
+          </div>
         </div>
       ) : (
-        <p className="text-sm text-text-muted">Nenhum pneu registrado ainda.</p>
+        <p className="text-sm text-text-muted">Nenhum jogo de pneus registrado ainda.</p>
       )}
 
       {stats.recommendChange && (
-        <p className="rounded-md border border-status-critical/40 bg-status-critical/10 px-3 py-2 text-sm text-status-critical">
+        <p className="border border-status-critical/40 bg-status-critical/10 px-3 py-2 text-sm text-status-critical">
           Grip estimado baixo — recomenda-se trocar o jogo de pneus.
         </p>
       )}
 
       <div className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
-        <label className="flex flex-col gap-1 text-xs text-text-muted">
-          Composto novo
+        <label className="flex flex-col gap-1">
+          <span className="eyebrow">Composto novo</span>
           <select
             value={compound}
             onChange={(e) => setCompound(e.target.value)}
-            className="min-w-[110px] cursor-pointer rounded-md border border-border bg-surface-raised px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            className={`${fieldInput} min-w-[110px] cursor-pointer`}
           >
             {COMPOUNDS.map((c) => (
               <option key={c} value={c}>
@@ -64,7 +69,7 @@ export function TirePanel() {
         <button
           type="button"
           onClick={() => startTireStint(compound)}
-          className="min-h-11 cursor-pointer rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-fg transition-opacity hover:opacity-90"
+          className="min-h-9 cursor-pointer border border-brand bg-brand px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-fg transition-opacity hover:opacity-90"
         >
           Trocar pneu
         </button>
@@ -75,17 +80,17 @@ export function TirePanel() {
           <button
             type="button"
             onClick={() => setHistoryOpen((v) => !v)}
-            className="cursor-pointer text-sm text-text-muted transition-colors hover:text-text"
+            className="cursor-pointer text-xs uppercase tracking-wide text-text-muted transition-colors hover:text-text"
           >
             {historyOpen ? "Esconder" : "Ver"} histórico de stints ({history.length})
           </button>
           {historyOpen && (
             <ul className="mt-2 flex flex-col gap-1.5">
               {[...history].reverse().map(({ entry, lapsRun }) => (
-                <li key={entry.id} className="flex items-center justify-between text-sm">
-                  <span>{entry.compound}</span>
+                <li key={entry.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="font-mono">{entry.compound}</span>
                   <span className="text-text-muted">
-                    volta {entry.stintStartLap} · {lapsRun} voltas · {resolveMemberName(members, entry.createdBy)} ·{" "}
+                    v{entry.stintStartLap} · {lapsRun}v · {resolveMemberName(members, entry.createdBy)} ·{" "}
                     {formatRelativeTime(entry.createdAt)}
                   </span>
                 </li>
@@ -94,15 +99,6 @@ export function TirePanel() {
           )}
         </div>
       )}
-    </section>
-  );
-}
-
-function Stat({ label, value, className = "" }: { label: string; value: string; className?: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-text-muted">{label}</span>
-      <span className={`font-mono text-lg tabular-nums ${className}`}>{value}</span>
-    </div>
+    </Panel>
   );
 }

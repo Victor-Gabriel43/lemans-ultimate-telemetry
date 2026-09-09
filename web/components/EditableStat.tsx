@@ -4,8 +4,8 @@ import { useState } from "react";
 
 /**
  * Estatística clicável pra editar (sem modal — clica, vira input, Enter/blur
- * salva, Esc cancela). Usada nos números manuais do dashboard (Fase 6) antes
- * de existir telemetria de verdade (Fase 14).
+ * salva, Esc cancela). Usada nos números manuais do dashboard enquanto não
+ * há telemetria de verdade alimentando esses campos.
  */
 export function EditableStat({
   label,
@@ -13,12 +13,14 @@ export function EditableStat({
   displayValue,
   unit,
   onSave,
+  className = "",
 }: {
   label: string;
   value: number | null;
   displayValue: string;
   unit?: string;
   onSave: (value: number | null) => void;
+  className?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -40,8 +42,8 @@ export function EditableStat({
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs uppercase tracking-wide text-text-muted">{label}</span>
+    <div className={`flex min-w-0 flex-col gap-1.5 ${className}`}>
+      <span className="eyebrow">{label}</span>
       {editing ? (
         <input
           autoFocus
@@ -54,16 +56,17 @@ export function EditableStat({
             if (e.key === "Enter") e.currentTarget.blur();
             if (e.key === "Escape") setEditing(false);
           }}
-          className="w-full min-w-0 rounded-md border border-brand bg-surface-raised px-2 py-1 font-mono text-xl tabular-nums focus:outline-none"
+          className="w-full min-w-0 border border-brand bg-surface-raised px-1.5 py-1 font-mono text-xl font-medium tabular-nums focus:outline-none"
         />
       ) : (
         <button
           type="button"
           onClick={startEdit}
-          className="cursor-pointer rounded-md px-2 py-1 text-left font-mono text-xl tabular-nums transition-colors hover:bg-surface-raised"
+          title="Clique para editar"
+          className="-mx-1.5 cursor-pointer rounded-none px-1.5 py-1 text-left font-mono text-xl font-medium leading-none tabular-nums transition-colors hover:bg-surface-raised"
         >
           {displayValue}
-          {unit && <span className="ml-1 text-sm font-sans text-text-muted">{unit}</span>}
+          {unit && <span className="ml-1 text-[0.55em] font-normal text-text-muted">{unit}</span>}
         </button>
       )}
     </div>

@@ -72,18 +72,21 @@ export function AlertsToast() {
       {visible.map((a) => (
         <div
           key={`${a.key}:${a.severity}`}
-          className={`pointer-events-auto flex w-full max-w-md items-start gap-2 rounded-md border px-3 py-2.5 shadow-lg backdrop-blur ${
+          className={`pointer-events-auto flex w-full max-w-md items-start gap-2.5 border-l-2 bg-surface/98 px-3 py-2.5 shadow-lg backdrop-blur ${
             a.severity === "CRITICAL"
-              ? "border-status-critical/50 bg-bg/95 text-status-critical"
-              : "border-status-warning/50 bg-bg/95 text-status-warning"
+              ? "border-l-status-critical text-status-critical"
+              : "border-l-status-warning text-status-warning"
           }`}
         >
           {a.severity === "CRITICAL" ? (
-            <OctagonAlert size={18} className="mt-0.5 shrink-0" aria-hidden />
+            <OctagonAlert size={16} className="mt-0.5 shrink-0" aria-hidden />
           ) : (
-            <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden />
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
           )}
-          <p className="flex-1 text-sm text-text">{a.message}</p>
+          <div className="flex-1">
+            <span className="eyebrow block">{a.severity === "CRITICAL" ? "Critical" : "Warning"}</span>
+            <p className="mt-0.5 text-sm text-text">{a.message}</p>
+          </div>
           <button
             type="button"
             onClick={() => dismiss(a.key, a.severity)}

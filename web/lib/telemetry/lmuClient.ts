@@ -18,7 +18,7 @@
 
 const HOSTS = ["localhost", "127.0.0.1"];
 const PORT = 6397;
-const FETCH_TIMEOUT_MS = 2000;
+const FETCH_TIMEOUT_MS = 1500;
 
 async function fetchJsonFromAnyHost(path: string): Promise<unknown | null> {
   for (const host of HOSTS) {
@@ -26,12 +26,13 @@ async function fetchJsonFromAnyHost(path: string): Promise<unknown | null> {
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
       const res = await fetch(`http://${host}:${PORT}${path}`, { signal: controller.signal, cache: "no-store" });
-      clearTimeout(timer);
       if (!res.ok) continue;
       return await res.json();
     } catch {
+      // mixed-content, CORS, jogo fechado, timeout do AbortController — tenta o
+      // próximo host; qualquer falha aqui é silenciosa (nunca trava a sala).
+    } finally {
       clearTimeout(timer);
-      // tenta o próximo host da lista
     }
   }
   return null;
@@ -84,8 +85,17 @@ export function parseFuelUsage(raw: unknown): FuelTelemetryResult {
 
 export type TelemetryStatus = "connecting" | "connected" | "error";
 
+/**
+ * NUNCA rejeita nem trava: qualquer falha vira `{ status: "error", fuel: {} }`.
+ * O caller (TelemetryToggle) usa isso pra sair de "connecting" — sem isto, um
+ * throw inesperado deixava a UI presa eternamente em "CONNECTING".
+ */
 export async function pollFuelTelemetry(): Promise<{ status: TelemetryStatus; fuel: FuelTelemetryResult }> {
-  const raw = await fetchJsonFromAnyHost("/rest/strategy/usage");
-  if (raw == null) return { status: "error", fuel: {} };
-  return { status: "connected", fuel: parseFuelUsage(raw) };
+  try {
+    const raw = await fetchJsonFromAnyHost("/rest/strategy/usage");
+    if (raw == null) return { status: "error", fuel: {} };
+    return { status: "connected", fuel: parseFuelUsage(raw) };
+  } catch {
+    return { status: "error", fuel: {} };
+  }
 }

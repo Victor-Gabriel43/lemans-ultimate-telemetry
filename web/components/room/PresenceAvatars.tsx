@@ -2,6 +2,10 @@
 
 import { colorForName, type ConnectedUser } from "@lmu/shared";
 
+/**
+ * Presença compacta pro header — avatares sobrepostos com iniciais. A lista
+ * completa (online + offline) vive no painel Team Members do dashboard.
+ */
 export function PresenceAvatars({
   users,
   currentUserId,
@@ -9,27 +13,32 @@ export function PresenceAvatars({
   users: ConnectedUser[];
   currentUserId: string | null;
 }) {
+  if (users.length === 0) return null;
+  const shown = users.slice(0, 5);
+  const extra = users.length - shown.length;
+
   return (
-    <ul className="flex flex-wrap items-center gap-2">
-      {users.map((u) => (
-        <li
+    <div
+      className="flex items-center"
+      title={users.map((u) => `${u.name}${u.userId === currentUserId ? " (você)" : ""}`).join(", ")}
+    >
+      {shown.map((u, i) => (
+        <span
           key={u.socketId}
-          title={u.name}
-          className="flex items-center gap-2 rounded-full bg-surface-raised py-1 pl-1 pr-3"
+          className={`flex h-7 w-7 shrink-0 items-center justify-center border border-bg font-mono text-[0.65rem] font-semibold text-brand-fg ${
+            i > 0 ? "-ml-2" : ""
+          }`}
+          style={{ backgroundColor: colorForName(u.userId) }}
+          aria-hidden
         >
-          <span
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-brand-fg"
-            style={{ backgroundColor: colorForName(u.userId) }}
-            aria-hidden
-          >
-            {u.name.slice(0, 2).toUpperCase()}
-          </span>
-          <span className="text-sm">
-            {u.name}
-            {u.userId === currentUserId && <span className="text-text-muted"> (você)</span>}
-          </span>
-        </li>
+          {u.name.slice(0, 2).toUpperCase()}
+        </span>
       ))}
-    </ul>
+      {extra > 0 && (
+        <span className="-ml-2 flex h-7 w-7 shrink-0 items-center justify-center border border-bg bg-surface-raised font-mono text-[0.65rem] text-text-muted">
+          +{extra}
+        </span>
+      )}
+    </div>
   );
 }

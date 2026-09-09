@@ -17,6 +17,12 @@ const STATUS_LABEL: Record<ScheduleStatus, string> = {
   DONE: "Concluído",
 };
 
+const STATUS_DOT: Record<ScheduleStatus, string> = {
+  PLANNED: "bg-text-dim",
+  ACTIVE: "bg-brand",
+  DONE: "bg-status-ok",
+};
+
 export function ScheduleSheet() {
   const snapshot = useRoomStore((s) => s.snapshot)!;
   const { scheduleRows, drivers, members } = snapshot;
@@ -35,14 +41,15 @@ export function ScheduleSheet() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[860px] border-collapse text-sm">
+      <div className="overflow-x-auto border border-border">
+        <table className="w-full min-w-[900px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-surface-raised text-left text-xs uppercase tracking-wide text-text-muted">
+            <tr className="border-b border-border bg-surface-raised text-left">
+              <Th className="w-12 text-center">#</Th>
               <Th>Horário / volta</Th>
               <Th>Piloto</Th>
               <Th>Status</Th>
-              <Th>Duração (min)</Th>
+              <Th className="text-right">Duração</Th>
               <Th>Observações</Th>
               <Th>Editado por</Th>
               <Th className="text-right">Ações</Th>
@@ -53,6 +60,7 @@ export function ScheduleSheet() {
               <Row
                 key={row.id}
                 row={row}
+                index={idx + 1}
                 isFirst={idx === 0}
                 isLast={idx === scheduleRows.length - 1}
                 drivers={drivers}
@@ -69,8 +77,11 @@ export function ScheduleSheet() {
             ))}
             {scheduleRows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-text-muted">
-                  Nenhum stint na escala ainda.
+                <td colSpan={8} className="px-3 py-8 text-center">
+                  <p className="text-sm text-text-muted">Nenhum stint na escala ainda.</p>
+                  <p className="mt-1 text-xs text-text-dim">
+                    Adicione stints para planejar quem dirige, por quanto tempo e quando o carro para.
+                  </p>
                 </td>
               </tr>
             )}
@@ -81,9 +92,9 @@ export function ScheduleSheet() {
       <button
         type="button"
         onClick={() => addRow(scheduleRows.at(-1)?.id)}
-        className="flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-text-muted transition-colors hover:border-brand hover:text-text"
+        className="flex min-h-9 w-fit cursor-pointer items-center gap-2 border border-dashed border-border px-3 py-2 text-xs uppercase tracking-wide text-text-muted transition-colors hover:border-brand hover:text-text"
       >
-        <Plus size={16} aria-hidden />
+        <Plus size={14} aria-hidden />
         Adicionar stint
       </button>
     </div>
@@ -91,11 +102,12 @@ export function ScheduleSheet() {
 }
 
 function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-3 py-2 font-semibold ${className}`}>{children}</th>;
+  return <th className={`eyebrow px-3 py-2 font-normal ${className}`}>{children}</th>;
 }
 
 function Row({
   row,
+  index,
   isFirst,
   isLast,
   drivers,
@@ -110,6 +122,7 @@ function Row({
   onMoveDown,
 }: {
   row: ScheduleRow;
+  index: number;
   isFirst: boolean;
   isLast: boolean;
   drivers: { id: string; name: string; colorHex: string }[];
@@ -125,17 +138,22 @@ function Row({
 }) {
   const rowClasses = [
     "border-b border-border last:border-b-0",
-    row.status === "ACTIVE" ? "border-l-2 border-l-brand bg-surface-raised" : "",
-    row.status === "DONE" ? "text-text-muted line-through opacity-60" : "",
+    row.status === "ACTIVE" ? "border-l-2 border-l-brand bg-surface-raised" : "border-l-2 border-l-transparent",
+    row.status === "DONE" ? "text-text-muted opacity-60" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
     <tr className={rowClasses}>
+      <td className="px-3 py-2 text-center font-mono text-xs tabular-nums text-text-muted">
+        {String(index).padStart(2, "0")}
+      </td>
+
       <TextCell
         value={row.plannedLabel}
         placeholder="ex: 00:00"
+        mono
         isEditing={editingCell?.rowId === row.id && editingCell.column === "plannedLabel"}
         onStartEdit={() => onStartEdit("plannedLabel")}
         onStopEdit={onStopEdit}
@@ -147,7 +165,7 @@ function Row({
         <select
           value={row.driverId ?? ""}
           onChange={(e) => onUpdate({ driverId: e.target.value || null })}
-          className="w-full min-w-[110px] cursor-pointer rounded-md border border-transparent bg-transparent px-1.5 py-1 hover:border-border hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          className="w-full min-w-[110px] cursor-pointer border border-transparent bg-transparent px-1.5 py-1 hover:border-border hover:bg-surface focus:border-brand focus:outline-none"
         >
           <option value="">—</option>
           {drivers.map((d) => (
@@ -159,17 +177,20 @@ function Row({
       </td>
 
       <td className="px-3 py-2">
-        <select
-          value={row.status}
-          onChange={(e) => onUpdate({ status: e.target.value as ScheduleStatus })}
-          className="w-full min-w-[140px] cursor-pointer rounded-md border border-transparent bg-transparent px-1.5 py-1 hover:border-border hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        >
-          {(Object.keys(STATUS_LABEL) as ScheduleStatus[]).map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
+        <span className="flex items-center gap-2">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[row.status]}`} aria-hidden />
+          <select
+            value={row.status}
+            onChange={(e) => onUpdate({ status: e.target.value as ScheduleStatus })}
+            className="w-full min-w-[130px] cursor-pointer border border-transparent bg-transparent px-1.5 py-1 hover:border-border hover:bg-surface focus:border-brand focus:outline-none"
+          >
+            {(Object.keys(STATUS_LABEL) as ScheduleStatus[]).map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </span>
       </td>
 
       <NumberCell
@@ -232,7 +253,7 @@ function IconButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md border border-transparent transition-colors hover:border-border hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-30 ${
+      className={`flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center border border-transparent text-text-muted transition-colors hover:border-border hover:bg-surface-raised hover:text-text disabled:cursor-not-allowed disabled:opacity-30 ${
         variant === "danger" ? "hover:border-status-critical/40 hover:text-status-critical" : ""
       }`}
     >
@@ -244,6 +265,7 @@ function IconButton({
 function TextCell({
   value,
   placeholder,
+  mono = false,
   isEditing,
   onStartEdit,
   onStopEdit,
@@ -252,6 +274,7 @@ function TextCell({
 }: {
   value: string;
   placeholder?: string;
+  mono?: boolean;
   isEditing: boolean;
   onStartEdit: () => void;
   onStopEdit: () => void;
@@ -259,6 +282,7 @@ function TextCell({
   onAdvance: () => void;
 }) {
   const [draft, setDraft] = useState(value);
+  const monoClass = mono ? "font-mono tabular-nums" : "";
 
   if (!isEditing) {
     return (
@@ -269,9 +293,9 @@ function TextCell({
             setDraft(value);
             onStartEdit();
           }}
-          className="w-full cursor-pointer rounded-md px-1.5 py-1 text-left transition-colors hover:bg-surface-raised"
+          className={`w-full cursor-pointer px-1.5 py-1 text-left transition-colors hover:bg-surface-raised ${monoClass}`}
         >
-          {value || <span className="text-text-muted">{placeholder}</span>}
+          {value || <span className="text-text-dim">{placeholder}</span>}
         </button>
       </td>
     );
@@ -297,7 +321,7 @@ function TextCell({
             onStopEdit();
           }
         }}
-        className="w-full rounded-md border border-brand bg-surface-raised px-1.5 py-1 focus:outline-none"
+        className={`w-full border border-brand bg-surface-raised px-1.5 py-1 focus:outline-none ${monoClass}`}
       />
     </td>
   );
@@ -322,16 +346,17 @@ function NumberCell({
 
   if (!isEditing) {
     return (
-      <td className="px-3 py-2">
+      <td className="px-3 py-2 text-right">
         <button
           type="button"
           onClick={() => {
             setDraft(String(value));
             onStartEdit();
           }}
-          className="w-full cursor-pointer rounded-md px-1.5 py-1 text-left font-mono tabular-nums transition-colors hover:bg-surface-raised"
+          className="w-full cursor-pointer px-1.5 py-1 text-right font-mono tabular-nums transition-colors hover:bg-surface-raised"
         >
           {value}
+          <span className="ml-0.5 text-xs text-text-dim">min</span>
         </button>
       </td>
     );
@@ -363,7 +388,7 @@ function NumberCell({
             onStopEdit();
           }
         }}
-        className="w-full rounded-md border border-brand bg-surface-raised px-1.5 py-1 font-mono tabular-nums focus:outline-none"
+        className="w-full border border-brand bg-surface-raised px-1.5 py-1 text-right font-mono tabular-nums focus:outline-none"
       />
     </td>
   );

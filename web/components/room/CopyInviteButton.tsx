@@ -21,18 +21,14 @@ export function CopyInviteButton({ inviteCode, reconnecting = false }: { inviteC
     <button
       type="button"
       onClick={handleCopy}
-      className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 transition-colors hover:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      className="flex min-h-9 cursor-pointer items-center gap-2 border border-border bg-surface px-3 py-1.5 transition-colors hover:border-brand hover:text-text focus:border-brand focus:outline-none"
       title={reconnecting ? "Reconectando…" : "Copiar link de convite"}
     >
-      <span
-        className={`h-2 w-2 shrink-0 animate-pulse rounded-full ${reconnecting ? "bg-status-warning" : "bg-status-ok"}`}
-        aria-hidden
-      />
-      <span className="font-mono text-sm tracking-widest">{inviteCode}</span>
+      <span className="font-mono text-sm font-semibold tracking-[0.2em]">{inviteCode}</span>
       {copied ? (
-        <Check size={16} className="text-status-ok" aria-hidden />
+        <Check size={15} className="text-status-ok" aria-hidden />
       ) : (
-        <Copy size={16} className="text-text-muted" aria-hidden />
+        <Copy size={15} className="text-text-muted" aria-hidden />
       )}
       <span className="sr-only">{copied ? "Link copiado" : "Copiar link de convite"}</span>
     </button>
