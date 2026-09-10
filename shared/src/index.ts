@@ -234,6 +234,10 @@ export interface ClientToServerEvents {
     ack: (result: { ok: true; snapshot: RoomSnapshot; userId: string } | { ok: false; error: string }) => void
   ) => void;
 
+  "driver:add": (payload: { roomId: string; name: string }) => void;
+  "driver:update": (payload: { roomId: string; driverId: string; patch: { name?: string; colorHex?: string } }) => void;
+  "driver:remove": (payload: { roomId: string; driverId: string }) => void;
+
   "schedule:add": (payload: { roomId: string; afterRowId?: string; updatedBy: string }) => void;
   "schedule:update": (payload: { roomId: string; rowId: string; patch: Partial<ScheduleRow>; updatedBy: string }) => void;
   "schedule:remove": (payload: { roomId: string; rowId: string }) => void;
@@ -265,6 +269,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   "room:state": (snapshot: RoomSnapshot) => void;
   "presence:update": (connectedUsers: ConnectedUser[]) => void;
+  "driver:changed": (drivers: Driver[]) => void;
   "schedule:changed": (scheduleRows: ScheduleRow[]) => void;
   "fuel:changed": (fuelLog: FuelEntry[]) => void;
   "tire:changed": (tireLog: TireEntry[]) => void;

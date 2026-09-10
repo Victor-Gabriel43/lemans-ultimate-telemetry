@@ -101,7 +101,7 @@ function toRoom(db: DbRoom): Room {
   };
 }
 
-function toDriver(db: DbDriver): Driver {
+export function toDriver(db: DbDriver): Driver {
   return { id: db.id, roomId: db.roomId, name: db.name, colorHex: db.colorHex, createdAt: db.createdAt.toISOString() };
 }
 
