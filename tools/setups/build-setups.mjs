@@ -8,9 +8,14 @@
 //   LMU_SENHA=... node tools/setups/build-setups.mjs --origem "<pasta>"
 // A senha também pode vir de --senha ou do arquivo .env.setups.local na raiz
 // do repo (linha LMU_SENHA=...). Esse arquivo está no .gitignore.
+//
+// Sem senha (catálogo aberto, sem tela de login):
+//   node tools/setups/build-setups.mjs --origem "<pasta>" --sem-senha
+// Gera web/public/setups/data.json em texto puro e apaga o data.enc; a página
+// usa o data.json quando ele existe. Rodar com senha de novo faz o inverso.
 
 import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
@@ -27,6 +32,7 @@ const SESSION_RE = /^[CEW][QR]$/;
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUTPUT = join(REPO_ROOT, "web", "public", "setups", "data.enc");
+const OUTPUT_OPEN = join(REPO_ROOT, "web", "public", "setups", "data.json");
 
 function listDirs(path) {
   return readdirSync(path).filter((n) => statSync(join(path, n)).isDirectory()).sort();
@@ -112,19 +118,23 @@ function main(args) {
   const i = args.indexOf("--origem");
   const origem = i >= 0 ? args[i + 1] : undefined;
   if (!origem || !existsSync(origem)) throw new Error("Informe a pasta organizada com --origem \"<pasta>\"");
-  const password = readPassword(args);
-  if (!password || password.length < MIN_PASSWORD_LENGTH) {
+  const open = args.includes("--sem-senha");
+  const password = open ? undefined : readPassword(args);
+  if (!open && (!password || password.length < MIN_PASSWORD_LENGTH)) {
     throw new Error(`Senha ausente ou com menos de ${MIN_PASSWORD_LENGTH} caracteres (use LMU_SENHA, --senha ou .env.setups.local)`);
   }
 
   const setups = collect(origem);
   const json = JSON.stringify({ gerado_em: new Date().toISOString(), setups });
   mkdirSync(dirname(OUTPUT), { recursive: true });
-  writeFileSync(OUTPUT, encrypt(Buffer.from(json, "utf8"), password));
+  // só um dos dois arquivos pode existir: é ele que decide se a página pede senha
+  const [out, other] = open ? [OUTPUT_OPEN, OUTPUT] : [OUTPUT, OUTPUT_OPEN];
+  writeFileSync(out, open ? json : encrypt(Buffer.from(json, "utf8"), password));
+  rmSync(other, { force: true });
 
   const porClasse = Object.fromEntries(CLASSES.map((c) => [c, setups.filter((s) => s.classe === c).length]));
-  console.log(`data.enc gerado: ${setups.length} setups`, porClasse);
-  console.log(`  ${OUTPUT} (${(statSync(OUTPUT).size / 1024).toFixed(0)} KB)`);
+  console.log(`${open ? "data.json (SEM senha)" : "data.enc"} gerado: ${setups.length} setups`, porClasse);
+  console.log(`  ${out} (${(statSync(out).size / 1024).toFixed(0)} KB)`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -11,6 +11,16 @@ const IV_LEN = 12;
 const STORAGE_KEY = "lmu-setups-key";
 
 export const DATA_URL = "/setups/data.enc";
+/** Catálogo sem senha (build com --sem-senha). Quando existe, a página nem pede senha. */
+export const OPEN_DATA_URL = "/setups/data.json";
+
+/** null = não há catálogo aberto publicado (segue pro fluxo com senha). */
+export async function fetchOpenData(): Promise<SetupData | null> {
+  const res = await fetch(OPEN_DATA_URL, { cache: "no-cache" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as SetupData;
+}
 
 export class WrongPasswordError extends Error {}
 export class FormatError extends Error {}

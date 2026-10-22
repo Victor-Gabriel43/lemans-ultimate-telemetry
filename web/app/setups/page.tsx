@@ -8,6 +8,7 @@ import {
   decryptData,
   deriveKey,
   fetchEncrypted,
+  fetchOpenData,
   forgetKey,
   FormatError,
   loadSavedKey,
@@ -22,7 +23,7 @@ import { ghostButton } from "@/components/ui/Panel";
 type Phase =
   | { kind: "loading" }
   | { kind: "locked"; error?: string; attempt?: number }
-  | { kind: "unlocked"; data: SetupData }
+  | { kind: "unlocked"; data: SetupData; open?: boolean }
   | { kind: "failed"; message: string; retry: boolean };
 
 export default function SetupsPage() {
@@ -31,6 +32,17 @@ export default function SetupsPage() {
   const encrypted = useRef<Uint8Array | null>(null);
 
   const load = useCallback(async () => {
+    setPhase({ kind: "loading" });
+    try {
+      const open = await fetchOpenData();
+      if (open) {
+        setPhase({ kind: "unlocked", data: open, open: true });
+        return;
+      }
+    } catch {
+      setPhase({ kind: "failed", message: "Falha ao carregar os dados.", retry: true });
+      return;
+    }
     if (!cryptoSupported()) {
       setPhase({ kind: "failed", message: "Este navegador não suporta a descriptografia usada pelo catálogo.", retry: false });
       return;
@@ -98,7 +110,7 @@ export default function SetupsPage() {
           <span className="h-3.5 w-px bg-border" />
           <span className="eyebrow">Setup Library</span>
         </div>
-        {phase.kind === "unlocked" && (
+        {phase.kind === "unlocked" && !phase.open && (
           <button type="button" onClick={logout} className={`${ghostButton} min-h-9 px-3 py-1.5 text-xs`}>
             Sair
           </button>

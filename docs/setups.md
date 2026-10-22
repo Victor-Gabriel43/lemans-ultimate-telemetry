@@ -2,6 +2,13 @@
 
 Catálogo privado de setups (`.svm`) do Le Mans Ultimate para o grupo. Só serve para navegar e baixar, sem login nem backend. O acesso é por **uma senha compartilhada**.
 
+> **Estado atual: SEM senha.** Enquanto o design/UX não está fechado, o catálogo é publicado aberto (`web/public/setups/data.json`, gerado com `--sem-senha`) e a página entra direto. **Qualquer pessoa com a URL baixa todos os setups.** Para religar a senha: rode o build sem `--sem-senha` (ele gera o `data.enc` e apaga o `data.json`), commit e push.
+>
+> ```bash
+> npm run setups:build -- --origem "<pasta organizada>" --sem-senha   # aberto
+> npm run setups:build -- --origem "<pasta organizada>"               # com senha
+> ```
+
 ## Como funciona
 
 - `tools/setups/build-setups.mjs` lê a pasta organizada `<Classe>/<Carro>/<Pista>/*.svm`, monta um JSON, comprime com gzip e criptografa com **AES-256-GCM**. A chave é derivada da senha com PBKDF2-SHA256 em 600 mil iterações. O resultado é o `web/public/setups/data.enc`, publicado junto com o site.
