@@ -1,0 +1,307 @@
+@import "tailwindcss";
+
+/*
+ * RACEOPS — design system.
+ * Ver docs/design-system.md na raiz do repo.
+ *
+ * Estética: race engineering / pit wall. Base quase-preta + grafite,
+ * linhas finas, números em monospace, cores funcionais (vermelho/âmbar/azul);
+ * verde SÓ quando é semanticamente "ok". Dark-only (sem modo claro).
+ *
+ * Os NOMES dos tokens são mantidos estáveis (--bg, --surface, --brand,
+ * --status-*, etc) pra não quebrar as classes Tailwind já espalhadas pelos
+ * componentes — o que muda aqui são os VALORES e a tipografia.
+ */
+:root {
+  --bg: #0a0a0b; /* quase preto — fundo da aplicação */
+  --surface: #121316; /* grafite — painéis */
+  --surface-raised: #191a1e; /* cinza escuro — linhas em hover, campos */
+  --border-c: #26272c; /* divisores finos */
+  --border-strong: #3a3c44; /* borda de destaque / foco de célula */
+  --text: #f4f4f5; /* off-white — texto principal */
+  --text-muted: #8b8d95; /* labels, timestamps */
+  --text-dim: #5b5d66; /* texto terciário, placeholders */
+
+  --brand: #2e9bff; /* azul — ações primárias, foco, "ao vivo" */
+  --brand-fg: #05070a;
+
+  --status-ok: #30d158; /* verde — só uso semântico (tudo certo) */
+  --status-warning: #ff9f0a; /* âmbar — atenção */
+  --status-critical: #ff4032; /* vermelho — crítico */
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border-c);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-dim: var(--text-dim);
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-status-ok: var(--status-ok);
+  --color-status-warning: var(--status-warning);
+  --color-status-critical: var(--status-critical);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Números que mudam com frequência (tempos, combustível, gaps) não devem
+   "pular" de largura ao trocar de dígito. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Label técnico do pit wall — pequeno, caixa alta, espaçado. */
+.eyebrow {
+  font-family: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Flash sutil quando um valor muda em tempo real (outro membro editou). */
+@keyframes raceops-flash {
+  0% {
+    background-color: color-mix(in srgb, var(--brand) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.raceops-flash {
+  animation: raceops-flash 900ms ease-out;
+}
+
+/* ---------------------------------------------------------------------------
+ * Home / Room Entry — entrada cinematográfica do "race operations center".
+ * Reveal orquestrado por etapas (delays sequenciais), nunca dezenas de
+ * microanimações soltas. Escopo: só a home.
+ * ------------------------------------------------------------------------- */
+@keyframes raceops-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes raceops-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes raceops-grid-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: var(--raceops-grid-opacity, 0.022);
+  }
+}
+@keyframes raceops-blink {
+  0%,
+  62% {
+    opacity: 1;
+  }
+  63%,
+  100% {
+    opacity: 0.25;
+  }
+}
+.raceops-reveal {
+  opacity: 0;
+  animation: raceops-rise 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.raceops-wipe {
+  animation: raceops-wipe 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.raceops-grid {
+  opacity: 0;
+  animation: raceops-grid-in 1.4s ease-out 0.15s forwards;
+}
+.raceops-blink {
+  animation: raceops-blink 2.4s steps(1, end) infinite;
+}
+
+/* ---------------------------------------------------------------------------
+ * Home — camadas de "ambiente" do race operations center.
+ * Tudo de baixíssimo contraste e movimento lento: dá a impressão de um
+ * sistema ligado, sem virar "site gamer". Escopo: só a home.
+ * ------------------------------------------------------------------------- */
+
+/* Halo azul atrás do título — respira devagar. */
+@keyframes raceops-halo {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translate3d(0, -1.5%, 0) scale(1.04);
+  }
+}
+.raceops-halo {
+  animation: raceops-halo 7s ease-in-out infinite;
+}
+
+/* Deriva lenta do grid de fundo — paralaxe sutil, nunca chama atenção. */
+@keyframes raceops-grid-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 48px 48px;
+  }
+}
+/* Aplicado junto de .raceops-grid: mantém o fade-in original e soma a deriva. */
+.raceops-grid.raceops-grid-drift {
+  animation: raceops-grid-in 1.4s ease-out 0.15s forwards,
+    raceops-grid-drift 24s linear infinite;
+}
+
+/* Varredura horizontal — uma "linha de scan" percorre o bloco de baixo p/ cima. */
+@keyframes raceops-scan {
+  0% {
+    top: 100%;
+    opacity: 0;
+  }
+  14%,
+  86% {
+    opacity: 1;
+  }
+  100% {
+    top: 0%;
+    opacity: 0;
+  }
+}
+.raceops-scan {
+  animation: raceops-scan 6.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Brilho que atravessa o wordmark uma vez a cada ciclo. */
+@keyframes raceops-sheen {
+  0%,
+  72%,
+  100% {
+    background-position: 220% 0;
+  }
+  86% {
+    background-position: -120% 0;
+  }
+}
+.raceops-sheen {
+  background-image: linear-gradient(
+    100deg,
+    var(--text) 0%,
+    var(--text) 38%,
+    color-mix(in srgb, var(--brand) 90%, #fff) 50%,
+    var(--text) 62%,
+    var(--text) 100%
+  );
+  background-size: 220% 100%;
+  background-position: 220% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: raceops-sheen 7s ease-in-out infinite;
+}
+
+/* Barra de acento que "carrega" ao passar o mouse num cartão de entrada. */
+@keyframes raceops-charge {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Cantos de "mira" — moldura de instrumento em torno de um bloco. */
+.raceops-corners {
+  position: relative;
+}
+.raceops-corners::before,
+.raceops-corners::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--brand);
+  opacity: 0.55;
+  transition: opacity 0.25s ease-out, width 0.25s ease-out, height 0.25s ease-out;
+  pointer-events: none;
+}
+.raceops-corners::before {
+  top: 3px;
+  left: 3px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.raceops-corners::after {
+  right: 3px;
+  bottom: 3px;
+  border-left: 0;
+  border-top: 0;
+}
+.raceops-corners:hover::before,
+.raceops-corners:hover::after,
+.raceops-corners:focus-visible::before,
+.raceops-corners:focus-visible::after {
+  opacity: 1;
+  width: 18px;
+  height: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .raceops-flash,
+  .animate-pulse,
+  .raceops-blink,
+  .raceops-halo,
+  .raceops-grid-drift,
+  .raceops-scan,
+  .raceops-sheen {
+    animation: none !important;
+  }
+  .raceops-sheen {
+    -webkit-background-clip: initial;
+    background-clip: initial;
+    color: var(--text);
+  }
+  .raceops-reveal,
+  .raceops-wipe,
+  .raceops-grid {
+    animation: none !important;
+    opacity: 1 !important;
+    clip-path: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbar discreta pras tabelas densas. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}

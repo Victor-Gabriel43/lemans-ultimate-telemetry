@@ -1,0 +1,184 @@
+// Schema Prisma — ver PASSO_A_PASSO.md (seção "Modelo de dados") para o
+// racional de cada campo antes de alterar.
+//
+// Decisão histórica (Fase 0-16, agora obsoleta em parte): o projeto rodou
+// em SQLite localmente e foi desenhado desde o início pra trocar pra
+// Postgres sem tocar nos models — nenhum campo usa `enum` nativo do
+// Prisma, scalar list (String[]) nem `Json` (o conector SQLite não
+// suportava nenhum dos três de forma portável). Em vez disso: `String`
+// simples pros campos de "enum" (validados na camada de serviço contra as
+// unions de @lmu/shared) e `String` com JSON.stringify/parse manual pra
+// listas/objetos (`repairs`, `settingsJson`) — ver server/src/db.ts.
+//
+// Setup Docker (pedido do usuário depois da Fase 16): esse desenho pagou
+// dividendo — trocar o `provider` abaixo pra "postgresql" não exigiu
+// mudar NENHUM model, só regenerar as migrations (SQL de SQLite não é
+// válido em Postgres, tiveram que ser recriadas do zero contra um
+// Postgres real). Postgres agora é o único banco suportado — dev local
+// também usa Postgres via `docker compose up postgres`, não SQLite.
+
+generator client {
+  provider      = "prisma-client-js"
+  // "native" cobre rodar fora de container (Linux/Mac/Windows, glibc);
+  // "linux-musl-openssl-3.0.x" é o Alpine usado nos Dockerfiles — sem os
+  // dois, o client gerado em dev local não roda dentro do container (ou
+  // vice-versa) porque o binário do query engine é específico da libc.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id                String   @id @default(cuid())
+  inviteCode        String   @unique
+  name              String
+  car               String
+  track             String?
+  raceDurationType  String // "TIME" | "LAPS"
+  raceDurationValue Float
+  raceStartedAt     DateTime?
+  currentLap        Int?
+  position          Int?
+  lastLapTime       Float?
+  bestLapTime       Float?
+  gapAheadSec       Float?
+  gapBehindSec      Float?
+  settingsJson      String // JSON.stringify(RoomSettings)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  drivers     Driver[]
+  members     RoomMember[]
+  scheduleRows ScheduleRow[]
+  pitStops    PitStop[]
+  fuelLog     FuelEntry[]
+  tireLog     TireEntry[]
+  damageLog   DamageEntry[]
+  alerts      Alert[]
+}
+
+// Roster durável de quem já entrou na sala (userId -> nome), separado da
+// presença em memória (socket/presence.ts, que é só "quem está conectado
+// agora"). Existe pra resolver o autor de um `updatedBy`/`createdBy` em
+// nome de exibição mesmo depois que a pessoa desconectou — sem isso, o
+// badge "editado por" na planilha de escala mostraria um userId cru (uuid)
+// pra qualquer editor que não estivesse mais online.
+model RoomMember {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  name      String
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomId, userId])
+  @@index([roomId])
+}
+
+model Driver {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  name      String
+  colorHex  String
+  createdAt DateTime @default(now())
+
+  scheduleRows ScheduleRow[]
+
+  @@index([roomId])
+}
+
+model ScheduleRow {
+  id              String   @id @default(cuid())
+  roomId          String
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  order           Float
+  plannedLabel    String
+  driverId        String?
+  driver          Driver?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  status          String   @default("PLANNED") // "PLANNED" | "ACTIVE" | "DONE"
+  durationMinutes Float
+  notes           String   @default("")
+  updatedBy       String
+  updatedAt       DateTime @updatedAt
+
+  @@index([roomId])
+}
+
+model PitStop {
+  id                  String    @id @default(cuid())
+  roomId              String
+  room                Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  lap                 Int?
+  fuelAddedLiters     Float?
+  tireChangeCompound  String?
+  includeDriverChange Boolean   @default(false)
+  driverChangeToId    String?
+  repairs             String? // JSON.stringify(string[]) — ids de DamageEntry, definidos no início e reparados na conclusão
+  durationSeconds     Int?
+  startedAt           DateTime  @default(now())
+  completedAt         DateTime?
+  createdBy           String
+
+  @@index([roomId])
+}
+
+model FuelEntry {
+  id              String   @id @default(cuid())
+  roomId          String
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  lap             Int
+  litersUsed      Float?
+  litersRemaining Float?
+  source          String   @default("MANUAL") // "MANUAL" | "TELEMETRY"
+  createdBy       String
+  createdAt       DateTime @default(now())
+
+  @@index([roomId])
+}
+
+model TireEntry {
+  id            String   @id @default(cuid())
+  roomId        String
+  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  compound      String
+  stintStartLap Int
+  ageLaps       Int      @default(0)
+  wearPercent   Float?
+  source        String   @default("MANUAL")
+  createdBy     String
+  createdAt     DateTime @default(now())
+
+  @@index([roomId])
+}
+
+model DamageEntry {
+  id                    String    @id @default(cuid())
+  roomId                String
+  room                  Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  part                  String
+  severity              String // "LIGHT" | "MODERATE" | "SEVERE"
+  repairEstimateMinutes Float?
+  source                String    @default("MANUAL")
+  repairedAt            DateTime?
+  createdBy             String
+  createdAt             DateTime  @default(now())
+
+  @@index([roomId])
+}
+
+model Alert {
+  id           String    @id @default(cuid())
+  roomId       String
+  room         Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  type         String
+  message      String
+  severity     String // "INFO" | "WARNING" | "CRITICAL"
+  createdAt    DateTime  @default(now())
+  dismissedAt  DateTime?
+
+  @@index([roomId])
+}
