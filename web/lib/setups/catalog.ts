@@ -67,6 +67,32 @@ export function groupSetups(setups: Setup[]): SetupGroup[] {
   );
 }
 
+export type CarSummary = {
+  classe: string;
+  carro: string;
+  pistas: string[];
+  conjuntos: number;
+  setups: number;
+  versao: string;
+};
+
+/** Um item por carro pra Garagem, na mesma ordem de groupSetups (classe, nome). */
+export function summarizeCars(groups: SetupGroup[]): CarSummary[] {
+  const map = new Map<string, CarSummary>();
+  for (const g of groups) {
+    let c = map.get(g.carro);
+    if (!c) {
+      c = { classe: g.classe, carro: g.carro, pistas: [], conjuntos: 0, setups: 0, versao: "" };
+      map.set(g.carro, c);
+    }
+    if (!c.pistas.includes(g.pista)) c.pistas.push(g.pista);
+    c.conjuntos += 1;
+    c.setups += g.setups.length;
+    if (g.versao && compareVersionDesc(g.versao, c.versao || "0") < 0) c.versao = g.versao;
+  }
+  return [...map.values()];
+}
+
 function matches(g: SetupGroup, f: Filters, ignore?: keyof Filters) {
   if (ignore !== "classe" && f.classe && g.classe !== f.classe) return false;
   if (ignore !== "carro" && f.carro && g.carro !== f.carro) return false;
