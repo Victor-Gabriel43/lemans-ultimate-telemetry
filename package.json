@@ -9,6 +9,8 @@
   "scripts": {
     "dev:server": "npm run dev --workspace=server",
     "dev:web": "npm run dev --workspace=web",
-    "build:shared": "npm run build --workspace=shared"
+    "build:shared": "npm run build --workspace=shared",
+    "setups:build": "node tools/setups/build-setups.mjs",
+    "setups:test": "node --test tools/setups/build-setups.test.mjs"
   }
 }

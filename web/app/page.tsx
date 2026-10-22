@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { SERVER_URL } from "@/lib/socket";
@@ -162,7 +163,9 @@ export default function Home() {
             <span className="eyebrow hidden sm:inline">Live Collaboration</span>
             <span className="eyebrow">Race Control</span>
           </div>
-          <span className="eyebrow">Le Mans Ultimate</span>
+          <Link href="/setups" className="eyebrow flex items-center gap-1.5 transition-colors hover:text-text">
+            Setup Library <ArrowRight size={12} aria-hidden />
+          </Link>
         </footer>
       </div>
     </main>

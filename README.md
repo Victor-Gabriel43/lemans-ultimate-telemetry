@@ -15,6 +15,7 @@ Painel de estratégia colaborativo em tempo real para corridas de endurance no L
 - **Alertas**: toasts derivados do estado da sala (ex. cobertura de horário), sem persistência.
 - **Telemetria local (opcional, best-effort)**: conecta em `http://localhost:6397` no PC que roda o jogo e alimenta a sala automaticamente — nunca bloqueia o uso manual se falhar.
 - **Exportação**: JSON completo da sala + CSV da escala final, gerados a partir do estado persistido no servidor.
+- **Setup Library** (`/setups`): catálogo privado de setups `.svm` por classe/carro/pista, protegido por senha do grupo (dados criptografados, descriptografia no navegador). Ver [`docs/setups.md`](./docs/setups.md).
 - Tudo em tempo real via Socket.IO — qualquer participante edita, todo mundo vê a atualização na hora, sem F5. Não há hierarquia de permissões: todo mundo pode editar tudo (decisão explícita de escopo da v1).
 
 ## Stack
