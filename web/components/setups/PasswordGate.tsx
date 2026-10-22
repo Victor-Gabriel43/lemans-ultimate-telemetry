@@ -33,7 +33,10 @@ export function PasswordGate({
       className="raceops-corners m-auto flex w-full max-w-sm flex-col gap-4 border border-border bg-surface p-6"
       onSubmit={(e) => {
         e.preventDefault();
-        if (password) onSubmit(password, remember);
+        // tolera colar a linha inteira do .env.setups.local ou espaços sobrando
+        // (o build também faz trim na senha)
+        const clean = password.trim().replace(/^LMU_SENHA=/, "").trim();
+        if (clean) onSubmit(clean, remember);
       }}
     >
       <div className="flex items-center gap-2">
