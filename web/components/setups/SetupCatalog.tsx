@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Download, FolderArchive, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, FolderArchive, ListChecks, Search } from "lucide-react";
 import {
   ALL,
   CLASSES,
@@ -22,6 +22,7 @@ import {
 import { brandOf, brandStyle, modelOf } from "@/lib/setups/brands";
 import { downloadGroup, downloadSetup } from "@/lib/setups/download";
 import { fieldInput } from "@/components/ui/Panel";
+import { SetupSheetDialog } from "@/components/setups/SetupSheetDialog";
 
 const chip =
   "min-h-9 cursor-pointer border px-3 py-1.5 font-mono text-xs uppercase tracking-[0.12em] transition-colors focus:outline-none focus-visible:border-brand";
@@ -317,6 +318,7 @@ function CarView({
 
 function GroupCard({ group: g }: { group: SetupGroup }) {
   const [zipping, setZipping] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const bySession = new Map(g.setups.map((s) => [s.sessao, s]));
 
   async function zip() {
@@ -337,17 +339,29 @@ function GroupCard({ group: g }: { group: SetupGroup }) {
             {[g.temporada, g.versao && `HYMO ${g.versao}`].filter(Boolean).join(" · ")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void zip()}
-          disabled={zipping}
-          title="Baixar todos (.zip)"
-          className="flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 border border-border px-2.5 py-1.5 text-xs uppercase tracking-wide text-text-muted transition-colors hover:border-brand hover:text-text disabled:opacity-40"
-        >
-          <FolderArchive size={14} aria-hidden />
-          .zip
-        </button>
+        <div className="flex shrink-0 gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            title="Ver os valores pra digitar no garage"
+            className="flex min-h-9 cursor-pointer items-center gap-1.5 border border-border px-2.5 py-1.5 text-xs uppercase tracking-wide text-text-muted transition-colors hover:border-brand hover:text-text"
+          >
+            <ListChecks size={14} aria-hidden />
+            Valores
+          </button>
+          <button
+            type="button"
+            onClick={() => void zip()}
+            disabled={zipping}
+            title="Baixar todos (.zip)"
+            className="flex min-h-9 cursor-pointer items-center gap-1.5 border border-border px-2.5 py-1.5 text-xs uppercase tracking-wide text-text-muted transition-colors hover:border-brand hover:text-text disabled:opacity-40"
+          >
+            <FolderArchive size={14} aria-hidden />
+            .zip
+          </button>
+        </div>
       </header>
+      {sheetOpen && <SetupSheetDialog group={g} onClose={() => setSheetOpen(false)} />}
 
       <div className="flex flex-col gap-2 p-3.5">
         {[
